@@ -1,10 +1,17 @@
 FROM dunglas/frankenphp:php8.4-bookworm
 
+RUN apt-get update && apt-get install -y \
+    git \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN install-php-extensions \
     mysqli \
     pdo_mysql \
     mbstring \
-    openssl
+    openssl \
+    zip
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

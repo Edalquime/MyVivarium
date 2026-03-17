@@ -19,7 +19,7 @@ WORKDIR /app
 
 COPY composer.json composer.lock ./
 
-RUN composer install --optimize-autoloader --no-scripts --no-interaction
+RUN composer install --prefer-dist --optimize-autoloader --no-scripts --no-interaction
 
 COPY . .
 

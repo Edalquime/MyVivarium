@@ -25,6 +25,24 @@ COPY . .
 
 COPY Caddyfile /etc/caddy/Caddyfile
 
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'cat > /app/.env << EOF' >> /start.sh && \
+    echo 'DB_HOST=${DB_HOST}' >> /start.sh && \
+    echo 'DB_USERNAME=${DB_USERNAME}' >> /start.sh && \
+    echo 'DB_PASSWORD=${DB_PASSWORD}' >> /start.sh && \
+    echo 'DB_DATABASE=${DB_DATABASE}' >> /start.sh && \
+    echo 'SMTP_HOST=${SMTP_HOST}' >> /start.sh && \
+    echo 'SMTP_PORT=${SMTP_PORT}' >> /start.sh && \
+    echo 'SMTP_USERNAME=${SMTP_USERNAME}' >> /start.sh && \
+    echo 'SMTP_PASSWORD=${SMTP_PASSWORD}' >> /start.sh && \
+    echo 'SMTP_ENCRYPTION=${SMTP_ENCRYPTION}' >> /start.sh && \
+    echo 'SENDER_EMAIL=${SENDER_EMAIL}' >> /start.sh && \
+    echo 'SENDER_NAME=${SENDER_NAME}' >> /start.sh && \
+    echo 'DEMO=${DEMO}' >> /start.sh && \
+    echo 'EOF' >> /start.sh && \
+    echo 'frankenphp run --config /etc/caddy/Caddyfile' >> /start.sh && \
+    chmod +x /start.sh
+
 EXPOSE 80
 
-CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
+CMD ["/start.sh"]

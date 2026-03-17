@@ -24,4 +24,6 @@ RUN composer install --prefer-dist --optimize-autoloader --no-scripts --no-inter
 
 COPY . .
 
-CMD ["/start-container.sh"]
+EXPOSE 80
+
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

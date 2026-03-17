@@ -1,6 +1,5 @@
 FROM dunglas/frankenphp:php8.4-bookworm
 
-# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     git \
     zip \
@@ -23,6 +22,8 @@ COPY composer.json composer.lock ./
 RUN composer install --prefer-dist --optimize-autoloader --no-scripts --no-interaction
 
 COPY . .
+
+COPY Caddyfile /etc/caddy/Caddyfile
 
 EXPOSE 80
 

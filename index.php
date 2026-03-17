@@ -9,8 +9,8 @@
  */
 
 // Disable error display in production (errors logged to server logs)
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 // Start a new session or resume the existing session

@@ -18,6 +18,7 @@ session_start();
 
 // Include the database connection file
 require 'dbcon.php';
+$demo = $_ENV['DEMO'] ?? 'no';
 require 'config.php'; // Include configuration file for SMTP details
 require 'vendor/autoload.php'; // Include PHPMailer autoload file
 

@@ -5,5 +5,6 @@
 
 :{$PORT:80} {
     root * /app
+    encode zstd br gzip
     php_server
 }

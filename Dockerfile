@@ -1,5 +1,6 @@
 FROM dunglas/frankenphp:php8.4-bookworm
 
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     git \
     zip \

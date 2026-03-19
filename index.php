@@ -18,6 +18,8 @@ session_start();
 
 // Include the database connection file
 require 'dbcon.php';
+mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('url', 'myvivarium-nel.up.railway.app')");
+mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('lab_name', 'My Vivarium')");
 $demo = $_ENV['DEMO'] ?? 'no';
 require 'config.php'; // Include configuration file for SMTP details
 require 'vendor/autoload.php'; // Include PHPMailer autoload file

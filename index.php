@@ -181,18 +181,20 @@ if (isset($_POST['login'])) {
                 } else {
                     // Verify password
                     if (password_verify($password, $row['password'])) {
-                       echo "<pre>";
-echo "Intentando hacer login...\n";
 $_SESSION['name'] = $row['name'];
 $_SESSION['username'] = $row['username'];
 $_SESSION['role'] = $row['role'];
 $_SESSION['position'] = $row['position'];
 $_SESSION['user_id'] = $row['id'];
 session_regenerate_id(true);
-echo "Session creada correctamente\n";
-echo "Redirigiendo a home.php...\n";
-echo "</pre>";
-die();
+$reset_attempts = "UPDATE users SET login_attempts = 0, account_locked = NULL WHERE username=?";
+$reset_stmt = mysqli_prepare($con, $reset_attempts);
+mysqli_stmt_bind_param($reset_stmt, "s", $username);
+mysqli_stmt_execute($reset_stmt);
+ob_start();
+header("Location: home.php");
+ob_end_flush();
+exit;
                         // Set session variables
                         $_SESSION['name'] = $row['name'];
                         $_SESSION['username'] = $row['username'];

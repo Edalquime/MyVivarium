@@ -41,9 +41,7 @@ SENDER_EMAIL=${SENDER_EMAIL}\n\
 SENDER_NAME=${SENDER_NAME}\n\
 DEMO=no\n\
 ENVEOF\n\
-mysql -h "$DB_HOST" -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" -e "INSERT IGNORE INTO settings (name, value) VALUES ('"'"'url'"'"', '"'"'myvivarium-nel.up.railway.app'"'"'), ('"'"'lab_name'"'"', '"'"'My Vivarium'"'"');" 2>/dev/null || true\n\
-frankenphp run --config /etc/caddy/Caddyfile\n' > /start.sh && \
-    chmod +x /start.sh
+frankenphp run --config /etc/caddy/Caddyfile\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 80
 

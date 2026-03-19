@@ -18,6 +18,7 @@ session_start();
 
 // Include the database connection file
 require 'dbcon.php';
+echo "<pre>" . file_get_contents('/app/.env') . "</pre>"; die();
 mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('url', 'myvivarium-nel.up.railway.app')");
 mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('lab_name', 'My Vivarium')");
 $demo = $_ENV['DEMO'] ?? 'no';

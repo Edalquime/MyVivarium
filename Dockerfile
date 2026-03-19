@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:php8.4-bookworm
+FROM dunglas/frankenphp:php8.2-bookworm
 
 RUN apt-get update && apt-get install -y \
     git \

@@ -181,6 +181,13 @@ if (isset($_POST['login'])) {
                 } else {
                     // Verify password
                     if (password_verify($password, $row['password'])) {
+                        echo "<pre>";
+echo "Password ingresado: " . $password . "\n";
+echo "Hash en DB: " . $row['password'] . "\n";
+echo "Verificacion: ";
+var_dump(password_verify($password, $row['password']));
+echo "</pre>";
+die();
                         // Set session variables
                         $_SESSION['name'] = $row['name'];
                         $_SESSION['username'] = $row['username'];

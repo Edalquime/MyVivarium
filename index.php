@@ -102,6 +102,9 @@ if (isset($_SESSION['name'])) {
 
 // Handle login form submission
 if (isset($_POST['login'])) {
+    error_log("LOGIN ATTEMPT: " . $_POST['username']);
+    echo "<pre>POST recibido: " . print_r($_POST, true) . "</pre>";
+    die();
     $username = $_POST['username'];
     $password = $_POST['password'];
     

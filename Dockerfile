@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y \
     git \
     zip \
     unzip \
+    default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN install-php-extensions \
@@ -25,26 +26,25 @@ COPY . .
 
 COPY Caddyfile /etc/caddy/Caddyfile
 
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'cat > /app/.env << EOF' >> /start.sh && \
-    echo 'DB_HOST=${DB_HOST}' >> /start.sh && \
-    echo 'DB_USERNAME=${DB_USERNAME}' >> /start.sh && \
-    echo 'DB_PASSWORD=${DB_PASSWORD}' >> /start.sh && \
-    echo 'DB_DATABASE=${DB_DATABASE}' >> /start.sh && \
-    echo 'SMTP_HOST=${SMTP_HOST}' >> /start.sh && \
-    echo 'SMTP_PORT=${SMTP_PORT}' >> /start.sh && \
-    echo 'SMTP_USERNAME=${SMTP_USERNAME}' >> /start.sh && \
-    echo 'SMTP_PASSWORD=${SMTP_PASSWORD}' >> /start.sh && \
-    echo 'SMTP_ENCRYPTION=${SMTP_ENCRYPTION}' >> /start.sh && \
-    echo 'SENDER_EMAIL=${SENDER_EMAIL}' >> /start.sh && \
-    echo 'SENDER_NAME=${SENDER_NAME}' >> /start.sh && \
-    echo 'DEMO=${DEMO}' >> /start.sh && \
-    echo 'EOF' >> /start.sh && \
-    echo 'mysql -h ${DB_HOST} -u ${DB_USERNAME} -p${DB_PASSWORD} ${DB_DATABASE} -e "INSERT IGNORE INTO settings (name, value) VALUES ('"'"'url'"'"', '"'"'${APP_URL}'"'"'),('"'"'lab_name'"'"', '"'"'My Vivarium'"'"');" 2>/dev/null || true' >> /start.sh && \
-    echo 'frankenphp run --config /etc/caddy/Caddyfile' >> /start.sh && \
+RUN printf '#!/bin/sh\n\
+cat > /app/.env << ENVEOF\n\
+DB_HOST=${DB_HOST}\n\
+DB_USERNAME=${DB_USERNAME}\n\
+DB_PASSWORD=${DB_PASSWORD}\n\
+DB_DATABASE=${DB_DATABASE}\n\
+SMTP_HOST=${SMTP_HOST}\n\
+SMTP_PORT=${SMTP_PORT}\n\
+SMTP_USERNAME=${SMTP_USERNAME}\n\
+SMTP_PASSWORD=${SMTP_PASSWORD}\n\
+SMTP_ENCRYPTION=${SMTP_ENCRYPTION}\n\
+SENDER_EMAIL=${SENDER_EMAIL}\n\
+SENDER_NAME=${SENDER_NAME}\n\
+DEMO=no\n\
+ENVEOF\n\
+mysql -h "$DB_HOST" -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" -e "INSERT IGNORE INTO settings (name, value) VALUES ('"'"'url'"'"', '"'"'myvivarium-nel.up.railway.app'"'"'), ('"'"'lab_name'"'"', '"'"'My Vivarium'"'"');" 2>/dev/null || true\n\
+frankenphp run --config /etc/caddy/Caddyfile\n' > /start.sh && \
     chmod +x /start.sh
 
 EXPOSE 80
 
 CMD ["/start.sh"]
-

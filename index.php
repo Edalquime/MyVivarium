@@ -182,10 +182,10 @@ if (isset($_POST['login'])) {
                     // Verify password
                     if (password_verify($password, $row['password'])) {
                         echo "<pre>";
-echo "Password ingresado: " . $password . "\n";
-echo "Hash en DB: " . $row['password'] . "\n";
-echo "Verificacion: ";
-var_dump(password_verify($password, $row['password']));
+echo "Password verificado correctamente\n";
+echo "Email verificado: " . $row['email_verified'] . "\n";
+echo "Status: " . $row['status'] . "\n";
+echo "Account locked: " . $row['account_locked'] . "\n";
 echo "</pre>";
 die();
                         // Set session variables

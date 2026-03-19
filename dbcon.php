@@ -24,11 +24,19 @@ if (file_exists(__DIR__ . '/.env')) {
     die('.env file not found. Please create the file and add your database credentials.');
 }
 
-// Retrieve database connection credentials from environment variables
-$servername = $_ENV['DB_HOST'] ?? 'localhost'; // Default to 'localhost' if not set
-$username = $_ENV['DB_USERNAME'] ?? 'root'; // Default to 'root' if not set
-$password = $_ENV['DB_PASSWORD'] ?? ''; // Default to an empty string if not set
-$dbname = $_ENV['DB_DATABASE'] ?? 'myvivarium'; // Default to 'database' if not set
+// Recuperar credenciales incluyendo el PUERTO
+$servername = $_ENV['DB_HOST']; 
+$username = $_ENV['DB_USERNAME'];
+$password = $_ENV['DB_PASSWORD'];
+$dbname = $_ENV['DB_DATABASE'];
+$port = $_ENV['DB_PORT']; // <--- Agrega esta línea
+
+// Crear la conexión incluyendo el puerto al final
+$con = new mysqli($servername, $username, $password, $dbname, $port);
+
+if ($con->connect_error) {
+    die('Error de Conexión: ' . $con->connect_error);
+}
 
 $demo = $_ENV['DEMO'] ?? ''; // Default to an empty string if not set
 

@@ -102,20 +102,6 @@ if (isset($_SESSION['name'])) {
 
 // Handle login form submission
 if (isset($_POST['login'])) {
-    error_log("LOGIN ATTEMPT: " . $_POST['username']);
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $query = "SELECT * FROM users WHERE username=?";
-    $statement = mysqli_prepare($con, $query);
-    mysqli_stmt_bind_param($statement, "s", $username);
-    mysqli_stmt_execute($statement);
-    $result = mysqli_stmt_get_result($statement);
-    $row = mysqli_fetch_assoc($result);
-    echo "<pre>";
-    echo "Usuario encontrado: ";
-    var_dump($row);
-    echo "</pre>";
-    die();
     $username = $_POST['username'];
     $password = $_POST['password'];
     

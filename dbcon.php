@@ -1,51 +1,31 @@
 <?php
-
-/**
- * Database Connection Script
- *
- * This script loads environment variables from a .env file using the Dotenv library and establishes a connection
- * to a MySQL database using the credentials provided in the .env file. If the .env file is not found or the
- * connection fails, appropriate error messages are logged or displayed.
- *
- */
-
-// Load Composer's autoload file
+// Cargar el autoload de Composer
 require __DIR__ . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
 
-// Check if the .env file exists in the current directory
+// Cargar variables del .env si existe (útil para local)
+// En Railway, las variables se inyectan directamente al entorno
 if (file_exists(__DIR__ . '/.env')) {
-    // Create an instance of Dotenv and load the .env file
     $dotenv = Dotenv::createImmutable(__DIR__);
     $dotenv->load();
-} else {
-    // Terminate the script with an error message if the .env file is not found
-    die('.env file not found. Please create the file and add your database credentials.');
 }
 
-// Recuperar credenciales incluyendo el PUERTO
-$servername = $_ENV['DB_HOST']; 
-$username = $_ENV['DB_USERNAME'];
-$password = $_ENV['DB_PASSWORD'];
-$dbname = $_ENV['DB_DATABASE'];
-$port = $_ENV['DB_PORT']; // <--- Agrega esta línea
+// Recuperar credenciales (buscando primero en el sistema y luego en el .env)
+$servername = $_ENV['DB_HOST'] ?? 'localhost'; 
+$username   = $_ENV['DB_USERNAME'] ?? 'root';
+$password   = $_ENV['DB_PASSWORD'] ?? '';
+$dbname     = $_ENV['DB_DATABASE'] ?? 'railway';
+$port       = $_ENV['DB_PORT'] ?? 3306; // Plan B: puerto 3306 si no hay variable
 
-// Crear la conexión incluyendo el puerto al final
-$con = new mysqli($servername, $username, $password, $dbname, $port);
+// Crear la conexión usando el puerto (importante para Railway)
+$con = new mysqli($servername, $username, $password, $dbname, (int)$port);
 
+// Verificar la conexión
 if ($con->connect_error) {
-    die('Error de Conexión: ' . $con->connect_error);
+    error_log('Error de Conexión: ' . $con->connect_error);
+    die('Error de conexión a la base de datos. Verifica tus variables en Railway.');
 }
 
-$demo = $_ENV['DEMO'] ?? ''; // Default to an empty string if not set
-
-// Create a new connection to the database using the object-oriented style
-$con = new mysqli($servername, $username, $password, $dbname);
-
-// Check the connection to the database
-if ($con->connect_error) {
-    // Log the error message (for production, avoid displaying detailed errors to users)
-    error_log('Connection Failed: ' . $con->connect_error);
-    die('Connection Failed. Please try again later.');
-}
+// Configurar charset a utf8 para evitar problemas con tildes o Ñ
+$con->set_charset("utf8");

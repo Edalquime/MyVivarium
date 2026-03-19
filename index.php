@@ -181,11 +181,16 @@ if (isset($_POST['login'])) {
                 } else {
                     // Verify password
                     if (password_verify($password, $row['password'])) {
-                        echo "<pre>";
-echo "Password verificado correctamente\n";
-echo "Email verificado: " . $row['email_verified'] . "\n";
-echo "Status: " . $row['status'] . "\n";
-echo "Account locked: " . $row['account_locked'] . "\n";
+                       echo "<pre>";
+echo "Intentando hacer login...\n";
+$_SESSION['name'] = $row['name'];
+$_SESSION['username'] = $row['username'];
+$_SESSION['role'] = $row['role'];
+$_SESSION['position'] = $row['position'];
+$_SESSION['user_id'] = $row['id'];
+session_regenerate_id(true);
+echo "Session creada correctamente\n";
+echo "Redirigiendo a home.php...\n";
 echo "</pre>";
 die();
                         // Set session variables

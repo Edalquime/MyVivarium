@@ -40,9 +40,11 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'SENDER_NAME=${SENDER_NAME}' >> /start.sh && \
     echo 'DEMO=${DEMO}' >> /start.sh && \
     echo 'EOF' >> /start.sh && \
+    echo 'mysql -h ${DB_HOST} -u ${DB_USERNAME} -p${DB_PASSWORD} ${DB_DATABASE} -e "INSERT IGNORE INTO settings (name, value) VALUES ('"'"'url'"'"', '"'"'${APP_URL}'"'"'),('"'"'lab_name'"'"', '"'"'My Vivarium'"'"');" 2>/dev/null || true' >> /start.sh && \
     echo 'frankenphp run --config /etc/caddy/Caddyfile' >> /start.sh && \
     chmod +x /start.sh
 
 EXPOSE 80
 
 CMD ["/start.sh"]
+

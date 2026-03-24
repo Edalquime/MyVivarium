@@ -5,8 +5,6 @@ error_reporting(E_ALL & ~E_DEPRECATED);
 
 /**
  * Add New Breeding Cage Script
- *
- * This script handles the creation of new breeding cages in a laboratory management system.
  */
 
 session_start();
@@ -44,13 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $iacuc_ids = $_POST['iacuc'] ?? [];
     $user_ids = $_POST['user'] ?? [];
     
-    // MODIFICACIÓN 1: Captura de Cantidades y Arreglos de Fechas
     $male_n = $_POST['male_n'] ?? 1; 
     $male_id = $_POST['male_id'];
     $female_n = $_POST['female_n'] ?? 1; 
     $female_id = $_POST['female_id'];
     
-    // Capturamos las múltiples fechas y las unimos con comas para la BD
     $male_dob_array = $_POST['male_dob'] ?? [];
     $female_dob_array = $_POST['female_dob'] ?? [];
     $male_dob = implode(', ', $male_dob_array);
@@ -69,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insert_cage_query = $con->prepare("INSERT INTO cages (`cage_id`, `pi_name`, `remarks`) VALUES (?, ?, ?)");
         $insert_cage_query->bind_param("sss", $cage_id, $pi_id, $remarks);
 
-        // MODIFICACIÓN 2: Se agregaron male_n y female_n al INSERT de SQL
         $insert_breeding_query = $con->prepare("INSERT INTO breeding (`cage_id`, `cross`, `male_n`, `male_id`, `female_n`, `female_id`, `male_dob`, `female_dob`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $insert_breeding_query->bind_param("ssisssss", $cage_id, $cross, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob);
 
@@ -90,26 +85,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert_cage_user_query->close();
             }
 
-            if (isset($_POST['dom'])) {
-                $dom = $_POST['dom'];
+            // MODIFICACIÓN 1: Eliminado 'dom' del procesamiento de camada
+            if (isset($_POST['litter_dob'])) {
                 $litter_dob = $_POST['litter_dob'];
+                
                 $pups_alive = array_map(function ($value) {
                     return !empty($value) ? intval($value) : 0;
                 }, $_POST['pups_alive']);
+                
                 $pups_dead = array_map(function ($value) {
                     return !empty($value) ? intval($value) : 0;
                 }, $_POST['pups_dead']);
+                
                 $pups_male = array_map(function ($value) {
                     return !empty($value) ? intval($value) : 0;
                 }, $_POST['pups_male']);
+                
                 $pups_female = array_map(function ($value) {
                     return !empty($value) ? intval($value) : 0;
                 }, $_POST['pups_female']);
-                $litter_remarks = $_POST['remarks_litter'];
+                
+                $litter_remarks = $_POST['remarks_litter'] ?? [];
 
-                for ($i = 0; $i < count($dom); $i++) {
-                    $insert_litter_query = $con->prepare("INSERT INTO litters (`cage_id`, `dom`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                    $insert_litter_query->bind_param("ssssssss", $cage_id, $dom[$i], $litter_dob[$i], $pups_alive[$i], $pups_dead[$i], $pups_male[$i], $pups_female[$i], $litter_remarks[$i]);
+                for ($i = 0; $i < count($litter_dob); $i++) {
+                    // Quitamos `dom` del query INSERT y un signo `?` de bind_param
+                    $insert_litter_query = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $insert_litter_query->bind_param("sssssss", $cage_id, $litter_dob[$i], $pups_alive[$i], $pups_dead[$i], $pups_male[$i], $pups_female[$i], $litter_remarks[$i]);
 
                     if ($insert_litter_query->execute()) {
                         $_SESSION['message'] .= " Litter data added successfully.";
@@ -190,7 +191,6 @@ require 'header.php';
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             
-            // Función para obtener la fecha de hoy
             function getCurrentDate() {
                 const today = new Date();
                 const yyyy = today.getFullYear();
@@ -199,7 +199,6 @@ require 'header.php';
                 return `${yyyy}-${mm}-${dd}`;
             }
 
-            // Función para poner tope de fecha máxima a hoy
             function setMaxDate() {
                 const currentDate = getCurrentDate();
                 const dateFields = document.querySelectorAll('input[type="date"]');
@@ -210,7 +209,6 @@ require 'header.php';
 
             setMaxDate();
 
-            // MODIFICACIÓN 3: Lógica dinámica de JavaScript para crear campos de fecha condicionales
             const maleNumInput = document.getElementById('male_n');
             const femaleNumInput = document.getElementById('female_n');
             const maleDatesContainer = document.getElementById('male_dates_container');
@@ -218,7 +216,7 @@ require 'header.php';
 
             function actualizarFechasMacho() {
                 const cantidad = parseInt(maleNumInput.value) || 0;
-                maleDatesContainer.innerHTML = ''; // Limpiamos previos
+                maleDatesContainer.innerHTML = ''; 
 
                 for (let i = 1; i <= cantidad; i++) {
                     const div = document.createElement('div');
@@ -234,7 +232,7 @@ require 'header.php';
 
             function actualizarFechasHembra() {
                 const cantidad = parseInt(femaleNumInput.value) || 0;
-                femaleDatesContainer.innerHTML = ''; // Limpiamos previos
+                femaleDatesContainer.innerHTML = ''; 
 
                 for (let i = 1; i <= cantidad; i++) {
                     const div = document.createElement('div');
@@ -248,26 +246,20 @@ require 'header.php';
                 setMaxDate();
             }
 
-            // Atamos los listeners a los números de machos y hembras
             maleNumInput.addEventListener('input', actualizarFechasMacho);
             femaleNumInput.addEventListener('input', actualizarFechasHembra);
 
-            // Generamos por defecto al cargar (ya que empieza en 1)
             actualizarFechasMacho();
             actualizarFechasHembra();
 
 
-            // Función de camadas dinámicas original
+            // MODIFICACIÓN 2: Eliminado 'DOM' del constructor de JavaScript
             function addLitter() {
                 const litterDiv = document.createElement('div');
                 litterDiv.className = 'litter-entry';
 
                 litterDiv.innerHTML = `
                     <hr>
-                    <div class="mb-3">
-                        <label for="dom[]" class="form-label">DOM <span class="required-asterisk">*</span></label>
-                        <input type="date" class="form-control" name="dom[]" required min="1900-01-01">
-                    </div>
                     <div class="mb-3">
                         <label for="litter_dob[]" class="form-label">Litter DOB <span class="required-asterisk">*</span></label>
                         <input type="date" class="form-control" name="litter_dob[]" required min="1900-01-01">
@@ -508,7 +500,7 @@ require 'header.php';
             <div class="mt-4">
                 <h5>Litter Data</h5>
                 <div id="litterEntries">
-                    </div>
+                </div>
                 <button type="button" class="btn btn-success mt-3" onclick="addLitter()">Add Litter Entry</button>
             </div>
 

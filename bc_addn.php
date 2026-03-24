@@ -57,7 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cross = $_POST['cross'];
     $iacuc_ids = $_POST['iacuc'] ?? [];
     $user_ids = $_POST['user'] ?? [];
+    $male_n = $POST ['male_n'];
     $male_id = $_POST['male_id'];
+    $female_n = $POST ['female_n'];
     $female_id = $_POST['female_id'];
     $male_dob = $_POST['male_dob'];
     $female_dob = $_POST['female_dob'];
@@ -79,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Insert into the breeding table
         $insert_breeding_query = $con->prepare("INSERT INTO breeding (`cage_id`, `cross`, `male_id`, `female_id`, `male_dob`, `female_dob`) VALUES (?, ?, ?, ?, ?, ?)");
-        $insert_breeding_query->bind_param("ssssss", $cage_id, $cross, $male_id, $female_id, $male_dob, $female_dob);
+        $insert_breeding_query->bind_param("ssssss", $cage_id, $cross,$male_n, $male_id,$female_n, $female_id, $male_dob, $female_dob);
 
         // Execute the statements and check if they were successful
         if ($insert_cage_query->execute() && $insert_breeding_query->execute()) {

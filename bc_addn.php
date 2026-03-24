@@ -1,14 +1,9 @@
 <?php
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-/**
- * Add New Breeding Cage Script
- */
-
 session_start();
-
 require 'dbcon.php';
 
 if (!isset($_SESSION['username'])) {
@@ -43,10 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_ids = $_POST['user'] ?? [];
     
     $male_n = $_POST['male_n'] ?? 1; 
-    $male_id = $_POST['male_id'];
     $female_n = $_POST['female_n'] ?? 1; 
-    $female_id = $_POST['female_id'];
-    
+
+    // Se unifican los IDs y las fechas por comas
+    $male_id_array = $_POST['male_id'] ?? [];
+    $male_id = implode(', ', $male_id_array);
+    $female_id_array = $_POST['female_id'] ?? [];
+    $female_id = implode(', ', $female_id_array);
+
     $male_dob_array = $_POST['male_dob'] ?? [];
     $female_dob_array = $_POST['female_dob'] ?? [];
     $male_dob = implode(', ', $male_dob_array);
@@ -85,51 +84,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert_cage_user_query->close();
             }
 
-            // MODIFICACIÓN 1: Eliminado 'dom' del procesamiento de camada
+            // Sin DOM
             if (isset($_POST['litter_dob'])) {
                 $litter_dob = $_POST['litter_dob'];
-                
-                $pups_alive = array_map(function ($value) {
-                    return !empty($value) ? intval($value) : 0;
-                }, $_POST['pups_alive']);
-                
-                $pups_dead = array_map(function ($value) {
-                    return !empty($value) ? intval($value) : 0;
-                }, $_POST['pups_dead']);
-                
-                $pups_male = array_map(function ($value) {
-                    return !empty($value) ? intval($value) : 0;
-                }, $_POST['pups_male']);
-                
-                $pups_female = array_map(function ($value) {
-                    return !empty($value) ? intval($value) : 0;
-                }, $_POST['pups_female']);
-                
+                $pups_alive = array_map(function ($value) { return !empty($value) ? intval($value) : 0; }, $_POST['pups_alive']);
+                $pups_dead = array_map(function ($value) { return !empty($value) ? intval($value) : 0; }, $_POST['pups_dead']);
+                $pups_male = array_map(function ($value) { return !empty($value) ? intval($value) : 0; }, $_POST['pups_male']);
+                $pups_female = array_map(function ($value) { return !empty($value) ? intval($value) : 0; }, $_POST['pups_female']);
                 $litter_remarks = $_POST['remarks_litter'] ?? [];
 
                 for ($i = 0; $i < count($litter_dob); $i++) {
-                    // Quitamos `dom` del query INSERT y un signo `?` de bind_param
                     $insert_litter_query = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $insert_litter_query->bind_param("sssssss", $cage_id, $litter_dob[$i], $pups_alive[$i], $pups_dead[$i], $pups_male[$i], $pups_female[$i], $litter_remarks[$i]);
-
-                    if ($insert_litter_query->execute()) {
-                        $_SESSION['message'] .= " Litter data added successfully.";
-                    } else {
-                        $_SESSION['message'] .= " Failed to add litter data: " . $insert_litter_query->error;
-                    }
-
+                    $insert_litter_query->execute();
                     $insert_litter_query->close();
                 }
             }
-        } else {
-            $_SESSION['message'] = "Failed to add new breeding cage.";
         }
-
-        $insert_cage_query->close();
-        $insert_breeding_query->close();
     }
-
-    $check_query->close();
 
     header("Location: bc_dash.php");
     exit();
@@ -140,71 +112,28 @@ require 'header.php';
 
 <!doctype html>
 <html lang="en">
-
 <head>
     <title>Add New Breeding Cage | <?php echo htmlspecialchars($labName); ?></title>
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-beta.1/css/select2.min.css" rel="stylesheet" />
-
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-beta.1/js/select2.min.js"></script>
 
     <style>
-        .container {
-            max-width: 800px;
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin: auto;
-        }
-
-        .form-label {
-            font-weight: bold;
-        }
-
-        .required-asterisk {
-            color: red;
-        }
-
-        .warning-text {
-            color: #dc3545;
-            font-size: 14px;
-        }
-
-        .select2-container .select2-selection--single {
-            height: 35px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            padding-right: 10px;
-            padding-left: 10px;
-        }
-
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-            height: 35px;
-        }
+        .container { max-width: 800px; background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: auto; }
+        .form-label { font-weight: bold; }
+        .required-asterisk { color: red; }
     </style>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            
             function getCurrentDate() {
                 const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
+                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             }
 
             function setMaxDate() {
                 const currentDate = getCurrentDate();
-                const dateFields = document.querySelectorAll('input[type="date"]');
-                dateFields.forEach(field => {
-                    field.setAttribute('max', currentDate);
-                });
+                document.querySelectorAll('input[type="date"]').forEach(field => field.setAttribute('max', currentDate));
             }
 
             setMaxDate();
@@ -214,306 +143,103 @@ require 'header.php';
             const maleDatesContainer = document.getElementById('male_dates_container');
             const femaleDatesContainer = document.getElementById('female_dates_container');
 
-            function actualizarFechasMacho() {
+            function actualizarMachos() {
                 const cantidad = parseInt(maleNumInput.value) || 0;
-                maleDatesContainer.innerHTML = ''; 
-
+                maleDatesContainer.innerHTML = '';
                 for (let i = 1; i <= cantidad; i++) {
-                    const div = document.createElement('div');
-                    div.className = 'mb-2 p-2 border rounded bg-white';
-                    div.innerHTML = `
-                        <label class="form-label">Male #${i} DOB <span class="required-asterisk">*</span></label>
-                        <input type="date" class="form-control" name="male_dob[]" required min="1900-01-01">
-                    `;
-                    maleDatesContainer.appendChild(div);
+                    maleDatesContainer.innerHTML += `
+                        <div class="mb-2 p-3 border rounded bg-white">
+                            <h6>Male #${i}</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">Male ID <span class="required-asterisk">*</span></label>
+                                    <input type="text" class="form-control" name="male_id[]" required>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">Male DOB <span class="required-asterisk">*</span></label>
+                                    <input type="date" class="form-control" name="male_dob[]" required min="1900-01-01">
+                                </div>
+                            </div>
+                        </div>`;
                 }
                 setMaxDate();
             }
 
-            function actualizarFechasHembra() {
+            function actualizarHembras() {
                 const cantidad = parseInt(femaleNumInput.value) || 0;
-                femaleDatesContainer.innerHTML = ''; 
-
+                femaleDatesContainer.innerHTML = '';
                 for (let i = 1; i <= cantidad; i++) {
-                    const div = document.createElement('div');
-                    div.className = 'mb-2 p-2 border rounded bg-white';
-                    div.innerHTML = `
-                        <label class="form-label">Female #${i} DOB <span class="required-asterisk">*</span></label>
-                        <input type="date" class="form-control" name="female_dob[]" required min="1900-01-01">
-                    `;
-                    femaleDatesContainer.appendChild(div);
+                    femaleDatesContainer.innerHTML += `
+                        <div class="mb-2 p-3 border rounded bg-white">
+                            <h6>Female #${i}</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">Female ID <span class="required-asterisk">*</span></label>
+                                    <input type="text" class="form-control" name="female_id[]" required>
+                                </div>
+                                <div class="col-md-6 mb-2">
+                                    <label class="form-label">Female DOB <span class="required-asterisk">*</span></label>
+                                    <input type="date" class="form-control" name="female_dob[]" required min="1900-01-01">
+                                </div>
+                            </div>
+                        </div>`;
                 }
                 setMaxDate();
             }
 
-            maleNumInput.addEventListener('input', actualizarFechasMacho);
-            femaleNumInput.addEventListener('input', actualizarFechasHembra);
+            maleNumInput.addEventListener('input', actualizarMachos);
+            femaleNumInput.addEventListener('input', actualizarHembras);
+            actualizarMachos();
+            actualizarHembras();
 
-            actualizarFechasMacho();
-            actualizarFechasHembra();
-
-
-            // MODIFICACIÓN 2: Eliminado 'DOM' del constructor de JavaScript
             function addLitter() {
                 const litterDiv = document.createElement('div');
-                litterDiv.className = 'litter-entry';
-
+                litterDiv.className = 'litter-entry mb-3 p-3 border rounded bg-white';
                 litterDiv.innerHTML = `
-                    <hr>
                     <div class="mb-3">
-                        <label for="litter_dob[]" class="form-label">Litter DOB <span class="required-asterisk">*</span></label>
+                        <label class="form-label">Litter DOB <span class="required-asterisk">*</span></label>
                         <input type="date" class="form-control" name="litter_dob[]" required min="1900-01-01">
                     </div>
                     <div class="mb-3">
-                        <label for="pups_alive[]" class="form-label">Pups Alive <span class="required-asterisk">*</span></label>
-                        <input type="number" class="form-control" name="pups_alive[]" required min="0" step="1">
+                        <label class="form-label">Pups Alive <span class="required-asterisk">*</span></label>
+                        <input type="number" class="form-control" name="pups_alive[]" required min="0">
                     </div>
                     <div class="mb-3">
-                        <label for="pups_dead[]" class="form-label">Pups Dead <span class="required-asterisk">*</span></label>
-                        <input type="number" class="form-control" name="pups_dead[]" required min="0" step="1">
+                        <label class="form-label">Pups Dead <span class="required-asterisk">*</span></label>
+                        <input type="number" class="form-control" name="pups_dead[]" required min="0">
                     </div>
-                    <div class="mb-3">
-                        <label for="pups_male[]" class="form-label">Pups Male</label>
-                        <input type="number" class="form-control" name="pups_male[]" min="0" step="1">
-                    </div>
-                    <div class="mb-3">
-                        <label for="pups_female[]" class="form-label">Pups Female</label>
-                        <input type="number" class="form-control" name="pups_female[]" min="0" step="1">
-                    </div>
-                    <div class="mb-3">
-                        <label for="remarks_litter[]" class="form-label">Remarks</label>
-                        <textarea class="form-control" name="remarks_litter[]" oninput="adjustTextareaHeight(this)"></textarea>
-                    </div>
-                    <button type="button" class="btn btn-danger" onclick="removeLitter(this)">Remove</button>
+                    <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">Remove</button>
                 `;
-
                 document.getElementById('litterEntries').appendChild(litterDiv);
                 setMaxDate();
             }
-
-            function adjustTextareaHeight(element) {
-                element.style.height = "auto";
-                element.style.height = (element.scrollHeight) + "px";
-            }
-
-            function removeLitter(element) {
-                element.parentElement.remove();
-            }
-
             window.addLitter = addLitter;
-            window.removeLitter = removeLitter;
-        });
-
-        function goBack() {
-            window.history.back();
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            function validateDate(dateString) {
-                const regex = /^\d{4}-\d{2}-\d{2}$/;
-                if (!dateString.match(regex)) return false;
-
-                const date = new Date(dateString);
-                const now = new Date();
-                const year = date.getFullYear();
-
-                return date && !isNaN(date) && year >= 1900 && date <= now;
-            }
-
-            function attachDateValidation() {
-                const dateFields = document.querySelectorAll('input[type="date"]');
-                dateFields.forEach(field => {
-                    if (!field.dataset.validated) { 
-                        const warningText = document.createElement('span');
-                        warningText.style.color = 'red';
-                        warningText.style.display = 'none';
-                        field.parentNode.appendChild(warningText);
-
-                        field.addEventListener('input', function() {
-                            const dateValue = field.value;
-                            const isValidDate = validateDate(dateValue);
-                            if (!isValidDate) {
-                                warningText.textContent = 'Invalid Date. Please enter a valid date.';
-                                warningText.style.display = 'block';
-                            } else {
-                                warningText.textContent = '';
-                                warningText.style.display = 'none';
-                            }
-                        });
-
-                        field.dataset.validated = 'true';
-                    }
-                });
-            }
-
-            attachDateValidation();
-
-            const form = document.querySelector('form');
-            const observer = new MutationObserver(() => {
-                attachDateValidation(); 
-            });
-
-            observer.observe(form, {
-                childList: true,
-                subtree: true
-            });
-
-            form.addEventListener('submit', function(event) {
-                let isValid = true;
-                const dateFields = document.querySelectorAll('input[type="date"]');
-                dateFields.forEach(field => {
-                    const dateValue = field.value;
-                    const warningText = field.nextElementSibling;
-                    if (!validateDate(dateValue)) {
-                        warningText.textContent = 'Invalid Date. Please enter a valid date.';
-                        warningText.style.display = 'block';
-                        isValid = false;
-                    }
-                });
-                if (!isValid) {
-                    event.preventDefault(); 
-                }
-            });
-        });
-
-        $(document).ready(function() {
-            $('#user').select2({
-                placeholder: "Select User(s)",
-                allowClear: true
-            });
-
-            $('#iacuc').select2({
-                placeholder: "Select IACUC",
-                allowClear: true,
-                templateResult: function(data) {
-                    if (!data.id) {
-                        return data.text;
-                    }
-                    var $result = $('<span>' + data.text + '</span>');
-                    $result.attr('title', data.element.title);
-                    return $result;
-                }
-            });
         });
     </script>
 </head>
-
 <body>
-
     <div class="container content mt-4">
-
         <h4>Add New Breeding Cage</h4>
-
-        <?php include('message.php'); ?>
-
-        <p class="warning-text">Fields marked with <span class="required-asterisk">*</span> are required.</p>
-
         <form method="POST">
-
             <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
 
-            <div class="mb-3">
-                <label for="cage_id" class="form-label">Cage ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="cage_id" name="cage_id" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="pi_name" class="form-label">PI Name <span class="required-asterisk">*</span></label>
-                <select class="form-control" id="pi_name" name="pi_name" required>
+            <div class="mb-3"><label class="form-label">Cage ID <span class="required-asterisk">*</span></label><input type="text" class="form-control" name="cage_id" required></div>
+            <div class="mb-3"><label class="form-label">PI Name <span class="required-asterisk">*</span></label>
+                <select class="form-control" name="pi_name" required>
                     <option value="" disabled selected>Select PI</option>
-                    <?php
-                    while ($row = $piResult->fetch_assoc()) {
-                        $pi_id = htmlspecialchars($row['id']);
-                        $pi_initials = htmlspecialchars($row['initials']);
-                        $pi_name = htmlspecialchars($row['name']);
-                        echo "<option value='$pi_id'>$pi_initials [$pi_name]</option>";
-                    }
-                    ?>
+                    <?php while ($row = $piResult->fetch_assoc()) { echo "<option value='{$row['id']}'>{$row['initials']} [{$row['name']}]</option>"; } ?>
                 </select>
             </div>
+            <div class="mb-3"><label class="form-label">Cross <span class="required-asterisk">*</span></label><input type="text" class="form-control" name="cross" required></div>
 
-            <div class="mb-3">
-                <label for="cross" class="form-label">Cross <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="cross" name="cross" required>
-            </div>
+            <div class="mb-3"><label class="form-label">Number of Males</label><input type="number" class="form-control" id="male_n" name="male_n" required min="1" value="1"></div>
+            <div id="male_dates_container"></div>
 
-            <div class="mb-3">
-                <label for="iacuc" class="form-label">IACUC</label>
-                <select class="form-control" id="iacuc" name="iacuc[]" multiple>
-                    <option value="" disabled>Select IACUC</option>
-                    <?php
-                    while ($iacucRow = $iacucResult->fetch_assoc()) {
-                        $iacuc_id = htmlspecialchars($iacucRow['iacuc_id']);
-                        $iacuc_title = htmlspecialchars($iacucRow['iacuc_title']);
-                        $truncated_title = strlen($iacuc_title) > 40 ? substr($iacuc_title, 0, 40) . '...' : $iacuc_title;
-                        echo "<option value='$iacuc_id' title='$iacuc_title'>$iacuc_id | $truncated_title</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label for="user" class="form-label">User <span class="required-asterisk">*</span></label>
-                <select class="form-control" id="user" name="user[]" multiple required>
-                    <?php
-                    while ($userRow = $userResult->fetch_assoc()) {
-                        $user_id = htmlspecialchars($userRow['id']);
-                        $initials = htmlspecialchars($userRow['initials']);
-                        $name = htmlspecialchars($userRow['name']);
-                        echo "<option value='$user_id'>$initials [$name]</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label for="male_n" class="form-label">Number of Breeding Males <span class="required-asterisk">*</span></label>
-                <input type="number" class="form-control" id="male_n" name="male_n" required min="1" step="1" value="1">
-            </div>
-
-            <div class="mb-3">
-                <label for="male_id" class="form-label">Male ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="male_id" name="male_id" required>
-            </div>
-
-            <div id="male_dates_container" class="mb-3 p-3 bg-white border rounded"></div>
-
-
-            <div class="mb-3">
-                <label for="female_n" class="form-label">Number of Breeding Females <span class="required-asterisk">*</span></label>
-                <input type="number" class="form-control" id="female_n" name="female_n" required min="1" step="1" value="1">
-            </div>
-
-            <div class="mb-3">
-                <label for="female_id" class="form-label">Female ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="female_id" name="female_id" required>
-            </div>
-
-            <div id="female_dates_container" class="mb-3 p-3 bg-white border rounded"></div>
-
-
-            <div class="mb-3">
-                <label for="remarks" class="form-label">Remarks</label>
-                <textarea class="form-control" id="remarks" name="remarks" oninput="adjustTextareaHeight(this)"></textarea>
-            </div>
-
-            <div class="mt-4">
-                <h5>Litter Data</h5>
-                <div id="litterEntries">
-                </div>
-                <button type="button" class="btn btn-success mt-3" onclick="addLitter()">Add Litter Entry</button>
-            </div>
-
-            <br>
+            <div class="mb-3"><label class="form-label">Number of Females</label><input type="number" class="form-control" id="female_n" name="female_n" required min="1" value="1"></div>
+            <div id="female_dates_container"></div>
 
             <button type="submit" class="btn btn-primary">Add Cage</button>
-            <button type="button" class="btn btn-secondary" onclick="goBack()">Go Back</button>
-
         </form>
     </div>
-
-    <br>
-    <?php include 'footer.php'; ?>
 </body>
-
 </html>

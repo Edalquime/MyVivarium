@@ -51,8 +51,8 @@ if (isset($_GET['id'])) {
         if ($result->num_rows === 1) {
             $breedingcage = $result->fetch_assoc(); // Fetch the breeding cage data
 
-            // Fetch the latest 5 associated litter records for this breeding cage
-            $query1 = "SELECT * FROM litters WHERE cage_id = ? ORDER BY dom DESC LIMIT 5";
+            // MODIFICACIÓN: Ordenar por litter_dob en lugar de dom y limitarlo a 5
+            $query1 = "SELECT * FROM litters WHERE cage_id = ? ORDER BY litter_dob DESC LIMIT 5";
             $stmt1 = $con->prepare($query1);
             $stmt1->bind_param("s", $id);
             $stmt1->execute();
@@ -157,7 +157,7 @@ function getIacucIdsByCageId($con, $cageId)
         span {
             font-size: 8pt;
             padding: 0px;
-            line-height: 1;
+            line-height: 1.2;
             display: inline-block;
         }
 
@@ -194,7 +194,6 @@ function getIacucIdsByCageId($con, $cageId)
                 <?php endif; ?>
 
                 <td style="width: 5in; border: 1px dashed #D3D3D3;">
-                    <!--Cage <?= $index + 1 ?>-->
                     <table border="1" style="width: 5in; height: 1.5in;" id="cageA">
                         <tr>
                             <td colspan="3" style="width: 100%; text-align:center;">
@@ -227,7 +226,7 @@ function getIacucIdsByCageId($con, $cageId)
                         </tr>
                         <tr>
                             <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Male ID:</span>
+                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Male ID (<?= $breedingcage["male_n"] ?? 1 ?>):</span>
                                 <span><?= $breedingcage["male_id"] ?></span>
                             </td>
                             <td style="width:40%;">
@@ -237,7 +236,7 @@ function getIacucIdsByCageId($con, $cageId)
                         </tr>
                         <tr style="border-bottom: none;">
                             <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Female ID:</span>
+                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Female ID (<?= $breedingcage["female_n"] ?? 1 ?>):</span>
                                 <span><?= $breedingcage["female_id"] ?></span>
                             </td>
                             <td style="width:40%;">
@@ -246,45 +245,40 @@ function getIacucIdsByCageId($con, $cageId)
                             </td>
                         </tr>
                     </table>
+                    
                     <table border="1" style="width: 5in; height: 1.5in; border-top: none;" id="cageB">
                         <tr>
-                            <td style="width:25%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">DOM</span>
-                            </td>
-                            <td style="width:25%;">
+                            <td style="width:30%;">
                                 <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">Litter DOB</span>
                             </td>
-                            <td style="width:12.5%;">
+                            <td style="width:17.5%;">
                                 <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">Pups Alive</span>
                             </td>
-                            <td style="width:12.5%;">
+                            <td style="width:17.5%;">
                                 <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">Pups Dead</span>
                             </td>
-                            <td style="width:12.5%;">
+                            <td style="width:17.5%;">
                                 <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">Pups Male</span>
                             </td>
-                            <td style="width:12.5%;">
+                            <td style="width:17.5%;">
                                 <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align: center;">Pups Female</span>
                             </td>
                         </tr>
                         <?php for ($i = 0; $i < 5; $i++) : ?>
                             <tr>
-                                <td style="width:25%; padding:3px;">
-                                    <span><?= isset($breedingcage['litters'][$i]['dom']) ? $breedingcage['litters'][$i]['dom'] : '' ?></span>
-                                </td>
-                                <td style="width:25%; padding:3px;">
+                                <td style="width:30%; padding:3px;">
                                     <span><?= isset($breedingcage['litters'][$i]['litter_dob']) ? $breedingcage['litters'][$i]['litter_dob'] : '' ?></span>
                                 </td>
-                                <td style="width:12.5%; padding:3px; text-align:center;">
+                                <td style="width:17.5%; padding:3px; text-align:center;">
                                     <span><?= isset($breedingcage['litters'][$i]['pups_alive']) ? $breedingcage['litters'][$i]['pups_alive'] : '' ?></span>
                                 </td>
-                                <td style="width:12.5%; padding:3px; text-align:center;">
+                                <td style="width:17.5%; padding:3px; text-align:center;">
                                     <span><?= isset($breedingcage['litters'][$i]['pups_dead']) ? $breedingcage['litters'][$i]['pups_dead'] : '' ?></span>
                                 </td>
-                                <td style="width:12.5%; padding:3px; text-align:center;">
+                                <td style="width:17.5%; padding:3px; text-align:center;">
                                     <span><?= isset($breedingcage['litters'][$i]['pups_male']) ? $breedingcage['litters'][$i]['pups_male'] : '' ?></span>
                                 </td>
-                                <td style="width:12.5%; padding:3px; text-align:center;">
+                                <td style="width:17.5%; padding:3px; text-align:center;">
                                     <span><?= isset($breedingcage['litters'][$i]['pups_female']) ? $breedingcage['litters'][$i]['pups_female'] : '' ?></span>
                                 </td>
                             </tr>

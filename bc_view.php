@@ -65,11 +65,9 @@ if (isset($_GET['id'])) {
     $stmt3->execute();
     $litters = $stmt3->get_result();
 
-    // Check if the breeding cage record exists
     if (mysqli_num_rows($result) === 1) {
         $breedingcage = mysqli_fetch_assoc($result);
 
-        // Fetch IACUC codes associated with the cage
         $iacucQuery = "SELECT ci.iacuc_id, i.file_url
                         FROM cage_iacuc ci
                         LEFT JOIN iacuc i ON ci.iacuc_id = i.iacuc_id
@@ -88,13 +86,11 @@ if (isset($_GET['id'])) {
         }
         $iacucDisplayString = implode(', ', $iacucLinks);
     } else {
-        // If the record does not exist, set an error message and redirect to the dashboard
         $_SESSION['message'] = 'Invalid ID.';
         header("Location: bc_dash.php");
         exit();
     }
 } else {
-    // If the ID parameter is missing, set an error message and redirect to the dashboard
     $_SESSION['message'] = 'ID parameter is missing.';
     header("Location: bc_dash.php");
     exit();
@@ -102,6 +98,7 @@ if (isset($_GET['id'])) {
 
 function getUserDetailsByIds($con, $userIds)
 {
+    if (empty($userIds)) return [];
     $placeholders = implode(',', array_fill(0, count($userIds), '?'));
     $query = "SELECT id, initials, name FROM users WHERE id IN ($placeholders)";
     $stmt = $con->prepare($query);
@@ -116,7 +113,6 @@ function getUserDetailsByIds($con, $userIds)
     return $userDetails;
 }
 
-// Fetch user IDs associated with the cage
 $userIdsQuery = "SELECT cu.user_id
                  FROM cage_users cu
                  WHERE cu.cage_id = ?";
@@ -129,10 +125,8 @@ while ($row = mysqli_fetch_assoc($userIdsResult)) {
     $userIds[] = $row['user_id'];
 }
 
-// Fetch the user details based on IDs
 $userDetails = getUserDetailsByIds($con, $userIds);
 
-// Prepare a string to display user details
 $userDisplay = [];
 foreach ($userIds as $userId) {
     if (isset($userDetails[$userId])) {
@@ -143,7 +137,6 @@ foreach ($userIds as $userId) {
 }
 $userDisplayString = implode(', ', $userDisplay);
 
-// Fetch the maintenance logs for the current cage
 $maintenanceQuery = "
     SELECT m.timestamp, u.name AS user_name, m.comments 
     FROM maintenance m
@@ -152,11 +145,10 @@ $maintenanceQuery = "
     ORDER BY m.timestamp DESC";
 
 $stmtMaintenance = $con->prepare($maintenanceQuery);
-$stmtMaintenance->bind_param("s", $id); // Assuming $id holds the current cage_id
+$stmtMaintenance->bind_param("s", $id);
 $stmtMaintenance->execute();
 $maintenanceLogs = $stmtMaintenance->get_result();
 
-// Include the header file
 require 'header.php';
 ?>
 
@@ -167,10 +159,9 @@ require 'header.php';
     <title>View Breeding Cage | <?php echo htmlspecialchars($labName); ?></title>
 
     <script>
-        // Function to display a QR code popup for the cage
         function showQrCodePopup(cageId) {
             var popup = window.open("", "QR Code for Cage " + cageId, "width=400,height=400");
-            var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://' + $url + '/bc_view.php?id=' + cageId;
+            var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://' + '<?= $url ?>' + '/bc_view.php?id=' + cageId;
             var htmlContent = `
             <html>
             <head>
@@ -191,7 +182,6 @@ require 'header.php';
             popup.document.close();
         }
 
-        // Function to navigate back to the previous page
         function goBack() {
             const urlParams = new URLSearchParams(window.location.search);
             const page = urlParams.get('page') || 1;
@@ -289,7 +279,6 @@ require 'header.php';
         }
 
         @media (max-width: 768px) {
-
             .table-wrapper th,
             .table-wrapper td {
                 padding: 12px 8px;
@@ -317,7 +306,6 @@ require 'header.php';
                     <a href="bc_edit.php?id=<?= rawurlencode($breedingcage['cage_id']); ?>" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Edit Cage">
                         <i class="fas fa-edit"></i>
                     </a>
-                    <!-- Button to mange tasks for the cage -->
                     <a href="manage_tasks.php?id=<?= rawurlencode($breedingcage['cage_id']); ?>" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Manage Tasks">
                         <i class="fas fa-tasks"></i>
                     </a>
@@ -352,16 +340,18 @@ require 'header.php';
                         <th>User</th>
                         <td><?= $userDisplayString; ?></td>
                     </tr>
+                    
                     <tr>
-                        <th>Male ID</th>
+                        <th>Male ID (Qty: <?= $breedingcage['male_n'] ?? 1 ?>)</th>
                         <td><?= htmlspecialchars($breedingcage['male_id']); ?></td>
                     </tr>
                     <tr>
                         <th>Male DOB</th>
                         <td><?= htmlspecialchars($breedingcage['male_dob']); ?></td>
                     </tr>
+
                     <tr>
-                        <th>Female ID</th>
+                        <th>Female ID (Qty: <?= $breedingcage['female_n'] ?? 1 ?>)</th>
                         <td><?= htmlspecialchars($breedingcage['female_id']); ?></td>
                     </tr>
                     <tr>
@@ -374,10 +364,8 @@ require 'header.php';
                     </tr>
                 </table>
 
-                <!-- Separator -->
                 <hr class="mt-4 mb-4" style="border-top: 3px solid #000;">
 
-                <!-- Display Files Section -->
                 <div class="card mt-4">
 
                     <div class="card-header">
@@ -403,25 +391,18 @@ require 'header.php';
                         </table>
                     </div>
 
-
                 </div>
 
-                <!-- Litter Details Section -->
                 <div class="card mt-4">
 
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">Litter Details - <?= htmlspecialchars($id) ?>
-                        </h4>
+                        <h4 class="mb-0">Litter Details - <?= htmlspecialchars($id) ?></h4>
                     </div>
 
                     <?php while ($litter = mysqli_fetch_assoc($litters)) : ?>
                         <div class="table-wrapper">
                             <table class="table table-bordered">
                                 <tbody>
-                                    <tr>
-                                        <th>DOM</th>
-                                        <td><?= htmlspecialchars($litter['dom'] ?? ''); ?></td>
-                                    </tr>
                                     <tr>
                                         <th>Litter DOB</th>
                                         <td><?= htmlspecialchars($litter['litter_dob'] ?? ''); ?></td>
@@ -453,12 +434,10 @@ require 'header.php';
 
                 </div>
 
-
                 <div class="card mt-4">
                     <div class="card-header d-flex flex-column flex-md-row justify-content-between">
                         <h4>Maintenance Log for Cage ID: <?= htmlspecialchars($id ?? 'Unknown'); ?></h4>
                         <div class="action-icons mt-3 mt-md-0">
-                            <!-- Maintenance button with tooltip -->
                             <a href="maintenance.php?from=bc_dash" class="btn btn-warning btn-icon" data-toggle="tooltip" data-placement="top" title="Add Maintenance Record">
                                 <i class="fas fa-wrench"></i>
                             </a>
@@ -495,11 +474,9 @@ require 'header.php';
                     </div>
                 </div>
 
-
             </div>
         </div>
 
-        <!-- Note App Highlight -->
         <div class="note-app-container">
             <?php include 'nt_app.php'; ?>
         </div>

@@ -95,23 +95,46 @@ require 'header.php';
         var calendarEl = document.getElementById('calendar');
 
         var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'timeGridWeek', // Muestra la semana con horarios por defecto
+            initialView: 'timeGridWeek',
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
             },
-            locale: 'es', // Idioma español
-            slotMinTime: '07:00:00', // El bioterio abre a las 7 AM
-            slotMaxTime: '20:00:00', // Cierra a las 8 PM
-            events: 'booking_fetch.php', // El archivo PHP que lee los eventos de la base de datos
-            editable: false,
-            selectable: true
+            locale: 'es',
+            slotMinTime: '07:00:00',
+            slotMaxTime: '20:00:00',
+            events: 'booking_fetch.php',
+            selectable: true,
+
+            // 🔥 NUEVA FUNCIÓN: Al hacer clic en una reserva existente
+            eventClick: function(info) {
+                // Preguntamos al usuario si desea eliminarla
+                if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {
+                    
+                    // Usamos AJAX para borrarla sin recargar la página
+                    $.ajax({
+                        url: 'booking_action.php',
+                        type: 'POST',
+                        data: {
+                            delete_booking: true,
+                            booking_id: info.event.id
+                        },
+                        success: function(response) {
+                            alert(response); // Mensaje de éxito o error
+                            calendar.refetchEvents(); // Recarga el calendario visualmente
+                        },
+                        error: function() {
+                            alert("Error crítico al intentar comunicarse con el servidor.");
+                        }
+                    });
+                }
+            }
         });
 
         calendar.render();
 
-        // Limitar fechas pasadas en el modal
+        // Limitar fechas pasadas en el modal de creación
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('start_event').min = now.toISOString().slice(0,16);

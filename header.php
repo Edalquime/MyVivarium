@@ -51,34 +51,42 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
             font-family: 'Poppins', sans-serif;
         }
 
-        /* Nav principal unificado */
         .modern-navbar {
             background-color: #343a40;
             padding: 0.8rem 2rem;
         }
 
-        .navbar-brand {
-            font-size: 1.5rem;
-            font-weight: 500;
-            color: white !important;
-            white-space: nowrap;
-        }
-
-        .logo-container {
+        /* Contenedor izquierdo que agrupa los logos y el nombre */
+        .brand-container {
             display: flex;
-            gap: 12px;
             align-items: center;
+            gap: 20px; /* Separación entre el bloque de logos y el texto del lab */
         }
 
-        .logo-container img {
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Separación entre cada logo individual */
+        }
+
+        .logo-group img {
             height: 45px;
             width: auto;
             border-radius: 4px;
             transition: transform 0.2s;
         }
 
-        .logo-container img:hover {
+        .logo-group img:hover {
             transform: scale(1.05);
+        }
+
+        .navbar-brand {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: white !important;
+            white-space: nowrap;
+            margin: 0;
+            padding: 0;
         }
 
         .nav-link-btn {
@@ -89,11 +97,12 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
             gap: 6px;
         }
 
-        /* Corregir desfases de visualización en pantallas móviles */
         @media (max-width: 991px) {
-            .logo-container {
-                margin: 1rem 0;
-                justify-content: center;
+            .brand-container {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                margin-bottom: 1rem;
             }
             .navbar-nav {
                 text-align: center;
@@ -109,28 +118,29 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
     <nav class="navbar navbar-expand-lg navbar-dark modern-navbar">
         <div class="container-fluid">
             
-            <a class="navbar-brand" href="home.php">
-                <?php echo htmlspecialchars($labName); ?>
-            </a>
+            <div class="brand-container">
+                <div class="logo-group">
+                    <a href="home.php">
+                        <img src="images/logo1.jpg" alt="Logo Laboratorio">
+                    </a>
+                    <a href="home.php">
+                        <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB">
+                    </a>
+                    <a href="home.php">
+                        <img src="images/logo_CPRL.jpeg" alt="Logo CPRL">
+                    </a>
+                </div>
+                
+                <a class="navbar-brand" href="home.php">
+                    <?php echo htmlspecialchars($labName); ?>
+                </a>
+            </div>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div class="collapse navbar-collapse" id="navbarContent">
-                
-                <div class="logo-container mx-auto">
-                    <a href="home.php">
-                        <img src="images/logo1.jpg" alt="Logo Laboratorio">
-                    </a>
-                    <a href="https://ejemplo.com/icb" target="_blank">
-                        <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB">
-                    </a>
-                    <a href="https://ejemplo.com/cprl" target="_blank">
-                        <img src="images/logo_CPRL.jpeg" alt="Logo CPRL">
-                    </a>
-                </div>
-
                 <div class="navbar-nav ms-auto">
                     
                     <a href="home.php" class="btn btn-outline-light nav-link-btn">

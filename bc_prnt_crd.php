@@ -2,16 +2,12 @@
 
 /**
  * Breeding Cage Printable Card Script
- *
- * Muestra las tarjetas de reproducción en formato 2x2 en español.
- * Extrae el Teléfono y Correo de los usuarios, la Cepa (Strain) y la Fecha de Cruce.
+ * Formato 2x2 en español blindado para respetar el tamaño exacto (Letter Landscape).
  */
 
 session_start();
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL & ~E_DEPRECATED);
+ini_set('display_errors', 0); // Desactivar en producción para evitar textos raros que dañen el PDF
 
 require 'dbcon.php';
 
@@ -34,7 +30,6 @@ if (isset($_GET['id'])) {
     $breedingcages = [];
 
     foreach ($ids as $id) {
-        // 🔍 Consulta extendida: Unimos con la tabla strains para sacar el nombre de la cepa
         $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, s.str_name, s.str_aka
                   FROM breeding b
                   LEFT JOIN cages c ON b.cage_id = c.cage_id
@@ -50,7 +45,6 @@ if (isset($_GET['id'])) {
         if ($result->num_rows === 1) {
             $breedingcage = $result->fetch_assoc();
 
-            // Litters (Camadas)
             $query1 = "SELECT * FROM litters WHERE cage_id = ? ORDER BY litter_dob DESC LIMIT 5";
             $stmt1 = $con->prepare($query1);
             $stmt1->bind_param("s", $id);
@@ -62,27 +56,20 @@ if (isset($_GET['id'])) {
             }
             $breedingcage['litters'] = $litters;
 
-            // Contacto de Usuarios
             $contactData = getUsersContactByCageId($con, $id);
             $breedingcage['user_initials'] = $contactData['initials'];
             $breedingcage['contact_phone'] = $contactData['phones'];
             $breedingcage['contact_email'] = $contactData['emails'];
 
             $breedingcages[] = $breedingcage;
-        } else {
-            $_SESSION['message'] = "ID inválido: $id";
-            header("Location: bc_dash.php");
-            exit();
         }
     }
 } else {
-    $_SESSION['message'] = 'Falta el parámetro ID.';
     header("Location: bc_dash.php");
     exit();
 }
 
-function getUsersContactByCageId($con, $cageId)
-{
+function getUsersContactByCageId($con, $cageId) {
     $query = "SELECT u.initials, u.username, u.phone 
               FROM users u 
               INNER JOIN cage_users cu ON u.id = cu.user_id 
@@ -92,9 +79,7 @@ function getUsersContactByCageId($con, $cageId)
     $stmt->execute();
     $result = $stmt->get_result();
 
-    $initials = [];
-    $emails = [];
-    $phones = [];
+    $initials = []; $emails = []; $phones = [];
 
     while ($row = $result->fetch_assoc()) {
         if (!empty($row['initials'])) $initials[] = htmlspecialchars($row['initials']);
@@ -110,8 +95,7 @@ function getUsersContactByCageId($con, $cageId)
     ];
 }
 
-function getIacucIdsByCageId($con, $cageId)
-{
+function getIacucIdsByCageId($con, $cageId) {
     $query = "SELECT i.iacuc_id FROM cage_iacuc ci
               LEFT JOIN iacuc i ON ci.iacuc_id = i.iacuc_id
               WHERE ci.cage_id = ?";
@@ -130,186 +114,206 @@ function getIacucIdsByCageId($con, $cageId)
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
-    <title>Impresión de Tarjetas 2x2</title>
+    <title>Impresión de Tarjetas Exactas 2x2</title>
     <style>
+        /* 📄 DEFINICIÓN ABSOLUTA DEL PAPEL CARTA HORIZONTAL */
         @page {
             size: letter landscape;
             margin: 0;
+        }
+
+        /* Reset global para evitar que los bordes sumen milímetros no deseados */
+        * {
+            box-sizing: border-box !important;
+        }
+
+        body, html {
+            margin: 0;
             padding: 0;
+            width: 11in; /* Ancho carta landscape */
+            height: 8.5in; /* Alto carta landscape */
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #fff;
+        }
+
+        /* Contenedor Flexbox para repartir el espacio exactamente 2x2 */
+        .page-container {
+            display: flex;
+            flex-wrap: wrap;
+            width: 11in;
+            height: 8.5in;
+            align-content: flex-start;
+        }
+
+        /* Cada tarjeta ocupa la mitad del ancho (5.5in) y la mitad del alto (4.25in) */
+        .card-slot {
+            width: 5.5in;
+            height: 4.25in;
+            border: 1px dashed #D3D3D3; /* Guía de corte sutil */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        /* La tabla física real de la tarjeta mide exactamente 5x3 pulgadas */
+        .actual-card {
+            width: 5in;
+            height: 3in;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 2px solid black;
+        }
+
+        .actual-card td {
+            border: 1px solid black;
+            padding: 3px;
+            vertical-align: top;
+            font-size: 8pt;
+            word-wrap: break-word;
+            overflow: hidden;
+        }
+
+        .title-span {
+            font-weight: bold;
+            font-size: 10pt;
+            text-transform: uppercase;
+        }
+
+        .label-span {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 7.5pt;
+        }
+
+        .value-span {
+            font-size: 8pt;
+        }
+
+        /* Subtabla para los Litters/Camadas */
+        .litters-table {
+            width: 100%;
+            height: 1.5in; /* Ocupa exactamente la mitad de abajo de la tarjeta de 3in */
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .litters-table td {
+            border: 1px solid black;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 7.5pt;
+            height: calc(1.5in / 6); /* Altura perfecta distribuida entre cabecera y 5 filas */
+            padding: 2px;
         }
 
         @media print {
             body {
-                margin: 0;
-                color: #000;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
-        }
-
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            display: grid;
-            place-items: center;
-            font-family: Arial, Helvetica, sans-serif;
-        }
-
-        span {
-            font-size: 8pt;
-            padding: 0px;
-            line-height: 1.2;
-            display: inline-block;
-        }
-
-        table {
-            box-sizing: border-box;
-            border-collapse: collapse;
-            margin: 0;
-            padding: 0;
-            border-spacing: 0;
-        }
-
-        table#cageA tr td,
-        table#cageB tr td {
-            border: 1px solid black;
-            box-sizing: border-box;
-            border-collapse: collapse;
-            margin: 0;
-            padding: 2px;
-            border-spacing: 0;
-        }
-
-        table#cageB tr:first-child td {
-            border-top: none;
+            .card-slot {
+                border: 1px dashed #ccc; /* Guía de corte visible al imprimir */
+            }
         }
     </style>
 </head>
-
 <body>
-    <table style="width: 10in; height: 6in; border-collapse: collapse; border: 1px dashed #D3D3D3;">
-        <?php foreach ($breedingcages as $index => $breedingcage) : ?>
 
-            <?php if ($index % 2 === 0) : ?>
-                <tr style="height: 3in; border: 1px dashed #D3D3D3; vertical-align:top;">
-            <?php endif; ?>
+<div class="page-container">
+    <?php foreach ($breedingcages as $breedingcage) : ?>
+        <div class="card-slot">
+            
+            <div style="width: 5in; height: 3in; display: flex; flex-direction: column;">
+                
+                <table class="actual-card" style="height: 1.5in;">
+                    <tr>
+                        <td colspan="3" style="text-align:center; height: 25px; vertical-align:middle; background-color: #f2f2f2;">
+                            <span class="title-span">JAULA DE CRUCE # <?= htmlspecialchars($breedingcage["cage_id"]) ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 40%;">
+                            <span class="label-span">PI:</span> 
+                            <span class="value-span"><?= htmlspecialchars($breedingcage["pi_name"] ?? 'N/A'); ?></span>
+                        </td>
+                        <td style="width: 40%;">
+                            <span class="label-span">Cepa:</span> 
+                            <span class="value-span">
+                                <?php 
+                                    $strainDisplay = htmlspecialchars($breedingcage['str_name'] ?? 'N/A');
+                                    if(!empty($breedingcage['str_aka'])) {
+                                        $strainDisplay .= " [" . htmlspecialchars($breedingcage['str_aka']) . "]";
+                                    }
+                                    echo $strainDisplay;
+                                ?>
+                            </span>
+                        </td>
+                        <td rowspan="4" style="width: 20%; text-align:center; vertical-align:middle; border-left: 2px solid black;">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=https://<?= $url ?>/bc_view.php?id=<?= $breedingcage["cage_id"] ?>&choe=UTF-8" alt="QR">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="label-span">IACUC:</span> 
+                            <span class="value-span"><?= htmlspecialchars(getIacucIdsByCageId($con, $breedingcage['cage_id'])); ?></span>
+                        </td>
+                        <td>
+                            <span class="label-span">Fecha Cruce:</span> 
+                            <span class="value-span"><?= htmlspecialchars($breedingcage["cross"]); ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="label-span">Teléfono:</span> 
+                            <span class="value-span" style="font-size: 7pt;"><?= htmlspecialchars($breedingcage["contact_phone"]) ?></span>
+                        </td>
+                        <td>
+                            <span class="label-span">Email:</span> 
+                            <span class="value-span" style="font-size: 6.5pt; word-break: break-all;"><?= htmlspecialchars($breedingcage["contact_email"]) ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <span class="label-span">ID Macho (<?= $breedingcage["male_n"] ?? 1 ?>):</span> 
+                            <span class="value-span"><?= htmlspecialchars($breedingcage["male_id"]) ?></span><br>
+                            <span class="label-span">Nac:</span> <span class="value-span"><?= htmlspecialchars($breedingcage["male_dob"]) ?></span>
+                        </td>
+                        <td>
+                            <span class="label-span">ID Hembra (<?= $breedingcage["female_n"] ?? 1 ?>):</span> 
+                            <span class="value-span"><?= htmlspecialchars($breedingcage["female_id"]) ?></span><br>
+                            <span class="label-span">Nac:</span> <span class="value-span"><?= htmlspecialchars($breedingcage["female_dob"]) ?></span>
+                        </td>
+                    </tr>
+                </table>
 
-                <td style="width: 5in; border: 1px dashed #D3D3D3;">
-                    <table border="1" style="width: 5in; height: 1.5in;" id="cageA">
+                <table class="litters-table">
+                    <tr style="background-color: #f2f2f2; font-weight: bold;">
+                        <td style="width: 32%;"><span class="label-span">Fecha Nac.</span></td>
+                        <td style="width: 17%;"><span class="label-span">Vivos</span></td>
+                        <td style="width: 17%;"><span class="label-span">Muertos</span></td>
+                        <td style="width: 17%;"><span class="label-span">Machos</span></td>
+                        <td style="width: 17%;"><span class="label-span">Hembras</span></td>
+                    </tr>
+                    <?php for ($i = 0; $i < 5; $i++) : ?>
                         <tr>
-                            <td colspan="3" style="width: 100%; text-align:center;">
-                                <span style="font-weight: bold; font-size: 10pt; text-transform: uppercase; padding:3px;">
-                                    JAULA DE CRUCE - # <?= $breedingcage["cage_id"] ?> </span>
-                            </td>
+                            <td><?= isset($breedingcage['litters'][$i]['litter_dob']) ? htmlspecialchars($breedingcage['litters'][$i]['litter_dob']) : '' ?></td>
+                            <td><?= isset($breedingcage['litters'][$i]['pups_alive']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_alive']) : '' ?></td>
+                            <td><?= isset($breedingcage['litters'][$i]['pups_dead']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_dead']) : '' ?></td>
+                            <td><?= isset($breedingcage['litters'][$i]['pups_male']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_male']) : '' ?></td>
+                            <td><?= isset($breedingcage['litters'][$i]['pups_female']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_female']) : '' ?></td>
                         </tr>
-                        <tr>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Nombre PI:</span>
-                                <span><?= htmlspecialchars($breedingcage["pi_name"] ?? 'N/A'); ?></span>
-                            </td>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Cepa:</span>
-                                <span>
-                                    <?php 
-                                        $strainDisplay = htmlspecialchars($breedingcage['str_name'] ?? 'N/A');
-                                        if(!empty($breedingcage['str_aka'])) {
-                                            $strainDisplay .= " [" . htmlspecialchars($breedingcage['str_aka']) . "]";
-                                        }
-                                        echo $strainDisplay;
-                                    ?>
-                                </span>
-                            </td>
-                            <td rowspan="4" style="width:20%; text-align:center; vertical-align:middle;">
-                                <img src="<?php echo "https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=https://" . $url . "/bc_view.php?id=" . $breedingcage["cage_id"] . "&choe=UTF-8"; ?>" alt="QR Code">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Protocolo IACUC:</span>
-                                <span><?= htmlspecialchars(getIacucIdsByCageId($con, $breedingcage['cage_id'])); ?></span>
-                            </td>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Fecha de Cruce:</span>
-                                <span><?= htmlspecialchars($breedingcage["cross"]); ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Teléfono Usuario:</span>
-                                <span style="font-size: 7.5pt;"><?= $breedingcage["contact_phone"] ?></span>
-                            </td>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Email Usuario:</span>
-                                <span style="font-size: 7pt; word-break: break-all;"><?= $breedingcage["contact_email"] ?></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">ID Macho (<?= $breedingcage["male_n"] ?? 1 ?>):</span>
-                                <span><?= htmlspecialchars($breedingcage["male_id"]) ?></span><br>
-                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac.:</span>
-                                <span><?= htmlspecialchars($breedingcage["male_dob"]) ?></span>
-                            </td>
-                            <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">ID Hembra (<?= $breedingcage["female_n"] ?? 1 ?>):</span>
-                                <span><?= htmlspecialchars($breedingcage["female_id"]) ?></span><br>
-                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac.:</span>
-                                <span><?= htmlspecialchars($breedingcage["female_dob"]) ?></span>
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <table border="1" style="width: 5in; height: 1.5in; border-top: none;" id="cageB">
-                        <tr>
-                            <td style="width:30%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac. Camada</span>
-                            </td>
-                            <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Vivos</span>
-                            </td>
-                            <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Muertos</span>
-                            </td>
-                            <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Machos</span>
-                            </td>
-                            <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Hembras</span>
-                            </td>
-                        </tr>
-                        <?php for ($i = 0; $i < 5; $i++) : ?>
-                            <tr>
-                                <td style="width:30%; padding:3px;">
-                                    <span><?= isset($breedingcage['litters'][$i]['litter_dob']) ? htmlspecialchars($breedingcage['litters'][$i]['litter_dob']) : '' ?></span>
-                                </td>
-                                <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_alive']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_alive']) : '' ?></span>
-                                </td>
-                                <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_dead']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_dead']) : '' ?></span>
-                                </td>
-                                <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_male']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_male']) : '' ?></span>
-                                </td>
-                                <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_female']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_female']) : '' ?></span>
-                                </td>
-                            </tr>
-                        <?php endfor; ?>
-                    </table>
-                </td>
+                    <?php endfor; ?>
+                </table>
 
-                <?php if ($index % 2 === 1 || $index === count($breedingcages) - 1) : ?>
-                </tr>
-            <?php endif; ?>
+            </div>
 
-        <?php endforeach; ?>
-    </table>
+        </div>
+    <?php endforeach; ?>
+</div>
+
 </body>
-
 </html>

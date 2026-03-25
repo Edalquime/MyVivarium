@@ -216,6 +216,8 @@ require 'header.php';
             const femaleNumInput = document.getElementById('female_n');
             const maleDatesContainer = document.getElementById('male_dates_container');
             const femaleDatesContainer = document.getElementById('female_dates_container');
+            const maleIdInputContainer = document.getElementById('male-id');
+            const femaleIdInputContainer = document.getElementById('female_id');
 
             function actualizarFechasMacho() {
                 const cantidad = parseInt(maleNumInput.value) || 0;
@@ -476,7 +478,7 @@ require 'header.php';
 
             <div class="mb-3">
                 <label for="male_id" class="form-label">Male ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="male_id" name="male_id" required min="1" step="1" value=1">
+                <input type="text" class="form-control" id="male_id" name="male_id" required min="1" >
             </div>
 
             <div id="male_dates_container" class="mb-3 p-3 bg-white border rounded"></div>
@@ -489,7 +491,7 @@ require 'header.php';
 
             <div class="mb-3">
                 <label for="female_id" class="form-label">Female ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="female_id" name="female_id" required min="1" step="1" value=1">
+                <input type="text" class="form-control" id="female_id" name="female_id" required min="1">
             </div>
 
             <div id="female_dates_container" class="mb-3 p-3 bg-white border rounded"></div>

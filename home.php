@@ -104,11 +104,24 @@ require 'header.php';
         <br>
         <div class="row align-items-center">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                
                 <h2>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>
                     <span style="font-size: smaller; color: #555; border-bottom: 2px solid #ccc; padding: 0 5px;">
                         [<?php echo htmlspecialchars($_SESSION['position']); ?>]
                     </span>
                 </h2>
+
+                <div class="d-flex align-items-center" style="gap: 15px;">
+                    <a href="home.php">
+                        <img src="images/logo1.jpg" alt="Logo Laboratorio" style="height: 50px; width: auto;">
+                    </a>
+                    <a href="#" target="_blank">
+                        <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" style="height: 50px; width: auto;">
+                    </a>
+                    <a href="#" target="_blank">
+                        <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" style="height: 50px; width: auto;">
+                    </a>
+                </div>
             </div>
 
             <h2 class="mt-4">Cages Summary</h2>

@@ -1,134 +1,288 @@
 <?php
 
 /**
- * Home Page
- * * This script serves as the home page for the web application. It displays a welcome message to the logged-in user, 
- * along with statistics on holding and breeding cages, and provides links to their respective dashboards. 
- * Additionally, it includes a section for general notes.
- * */
+ * Login Page
+ * 
+ * This script handles user login, displays login errors, and redirects authenticated users to their intended destination or home page. 
+ * It also displays a carousel of images and highlights the features of the web application.
+ * 
+ */
+
+// Disable error display in production (errors logged to server logs)
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(E_ALL & ~E_DEPRECATED);
 
 // Start a new session or resume the existing session
 session_start();
 
 // Include the database connection file
 require 'dbcon.php';
+mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('url', 'myvivarium-nel.up.railway.app')");
+mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('lab_name', 'My Vivarium')");
+$demo = $_ENV['DEMO'] ?? 'no';
+require 'config.php'; // Include configuration file for SMTP details
+require 'vendor/autoload.php'; // Include PHPMailer autoload file
 
-// Check if the user is logged in, redirect to login page if not logged in
-if (!isset($_SESSION['name'])) {
-    header("Location: index.php"); // Redirect to login page if not logged in
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Query to fetch the lab name, URL, and Turnstile keys from the settings table
+$labQuery = "SELECT name, value FROM settings WHERE name IN ('lab_name', 'url', 'cf-turnstile-secretKey', 'cf-turnstile-sitekey')";
+$labResult = mysqli_query($con, $labQuery);
+
+// Default values if the query fails or returns no result
+$labName = "My Vivarium";
+$url = "";
+$turnstileSecretKey = "";
+$turnstileSiteKey = "";
+
+while ($row = mysqli_fetch_assoc($labResult)) {
+    if ($row['name'] === 'lab_name') {
+        $labName = $row['value'];
+    } elseif ($row['name'] === 'url') {
+        $url = $row['value'];
+    } elseif ($row['name'] === 'cf-turnstile-secretKey') {
+        $turnstileSecretKey = $row['value'];
+    } elseif ($row['name'] === 'cf-turnstile-sitekey') {
+        $turnstileSiteKey = $row['value'];
+    }
+}
+
+// Function to send confirmation email
+function sendConfirmationEmail($to, $token)
+{
+    global $url;
+    $confirmLink = "https://" . $url . "/confirm_email.php?token=$token";
+    $subject = 'Email Confirmation';
+    $message = "Please click the link below to confirm your email address:\n$confirmLink";
+
+    $mail = new PHPMailer(true);
+    try {
+        //Server settings
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->Port = SMTP_PORT;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_ENCRYPTION;
+
+        //Recipients
+        $mail->setFrom(SENDER_EMAIL, SENDER_NAME);
+        $mail->addAddress($to);
+
+        // Content
+        $mail->isHTML(false);
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+
+        $mail->send();
+    } catch (Exception $e) {
+        error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+    }
+}
+
+// Check if the user is already logged in
+if (isset($_SESSION['name'])) {
+    // Redirect to the specified URL or default to home.php
+    if (isset($_GET['redirect'])) {
+        $rurl = urldecode($_GET['redirect']);
+        // Validate redirect URL to prevent open redirects
+        // Only allow relative URLs starting with /  or page names
+        if (preg_match('/^[a-zA-Z0-9_\-\.\/\?=&]+\.php/', $rurl) && !preg_match('/^(https?:)?\/\//', $rurl)) {
+            header("Location: $rurl");
+            exit;
+        }
+    }
+    // Default redirect if validation fails or no redirect specified
+    header("Location: home.php");
     exit;
 }
 
-// Fetch the counts for holding and breeding cages
-$holdingCountResult = $con->query("SELECT COUNT(*) AS count FROM holding");
-$holdingCountRow = $holdingCountResult->fetch_assoc();
-$holdingCount = $holdingCountRow['count'];
+// Handle login form submission
+if (isset($_POST['login'])) {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    
+    // Proceed with Turnstile verification only if Turnstile keys are set
+    if (!empty($turnstileSiteKey) && !empty($turnstileSecretKey)) {
+        $turnstileResponse = $_POST['cf-turnstile-response'];
+        
+        // Verify Turnstile token
+        $verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+        $data = [
+            'secret' => $turnstileSecretKey,
+            'response' => $turnstileResponse,
+            'remoteip' => $_SERVER['REMOTE_ADDR']
+        ];
 
-$matingCountResult = $con->query("SELECT COUNT(*) AS count FROM breeding");
-$matingCountRow = $matingCountResult->fetch_assoc();
-$matingCount = $matingCountRow['count'];
+        // Send request to verify Turnstile response
+        $ch = curl_init($verifyUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-// Fetch the task stats for the logged-in user
-$userId = $_SESSION['user_id'];
-$taskStatsQuery = "
-    SELECT
-        COUNT(*) AS total,
-        SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) AS in_progress,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending
-    FROM tasks
-    WHERE assigned_to = ?
-";
-$stmtTaskStats = $con->prepare($taskStatsQuery);
-$stmtTaskStats->bind_param("i", $userId);
-$stmtTaskStats->execute();
-$taskStatsResult = $stmtTaskStats->get_result();
-$taskStatsRow = $taskStatsResult->fetch_assoc();
-$totalTasks = $taskStatsRow['total'] ?? 0;
-$completedTasks = $taskStatsRow['completed'] ?? 0;
-$inProgressTasks = $taskStatsRow['in_progress'] ?? 0;
-$pendingTasks = $taskStatsRow['pending'] ?? 0;
+        $response = curl_exec($ch);
+        curl_close($ch);
+        $result = json_decode($response, true);
 
-// Set completedTasks, inProgressTasks, and pendingTasks to zero if totalTasks is zero
-if ($totalTasks == 0) {
-    $completedTasks = 0;
-    $inProgressTasks = 0;
-    $pendingTasks = 0;
+        // Check Turnstile response success
+        if (!$result['success']) {
+            // Store error message in the session to display to the user
+            $_SESSION['error_message'] = "Cloudflare Turnstile verification failed. Please try again.";
+            header("Location: " . htmlspecialchars($_SERVER["PHP_SELF"]));
+            exit;
+        }
+    }
+
+    // Proceed with login validation if Turnstile passed or not required
+    $query = "SELECT * FROM users WHERE username=?";
+    $statement = mysqli_prepare($con, $query);
+    mysqli_stmt_bind_param($statement, "s", $username);
+    mysqli_stmt_execute($statement);
+    $result = mysqli_stmt_get_result($statement);
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        // Check if the email is verified
+        if ($row['email_verified'] == 0) {
+            // Check if email_token is empty
+            if (empty($row['email_token'])) {
+                // Generate a new token
+                $new_token = bin2hex(random_bytes(16));
+
+                // Update the database with the new token
+                $update_token_query = "UPDATE users SET email_token = ? WHERE username = ?";
+                $update_token_stmt = mysqli_prepare($con, $update_token_query);
+                mysqli_stmt_bind_param($update_token_stmt, "ss", $new_token, $username);
+                mysqli_stmt_execute($update_token_stmt);
+                mysqli_stmt_close($update_token_stmt);
+
+                // Use the new token for sending the confirmation email
+                $token = $new_token;
+            } else {
+                // Use the existing token
+                $token = $row['email_token'];
+            }
+
+            // Send the confirmation email
+            sendConfirmationEmail($username, $token);
+
+            // Set error message for the user
+            $error_message = "Your email is not verified. A new verification email has been sent. Please check your email to verify your account.";
+        } else {
+            // Check if the account status is approved
+            if ($row['status'] != 'approved') {
+                $error_message = "Your account is pending admin approval.";
+            } else {
+                // Check if the account is locked
+                if (!is_null($row['account_locked']) && new DateTime() < new DateTime($row['account_locked'])) {
+                    $error_message = "Account is temporarily locked. Please try again later.";
+                } else {
+                    // Verify password
+                    if (password_verify($password, $row['password'])) {
+$_SESSION['name'] = $row['name'];
+$_SESSION['username'] = $row['username'];
+$_SESSION['role'] = $row['role'];
+$_SESSION['position'] = $row['position'];
+$_SESSION['user_id'] = $row['id'];
+session_regenerate_id(true);
+$reset_attempts = "UPDATE users SET login_attempts = 0, account_locked = NULL WHERE username=?";
+$reset_stmt = mysqli_prepare($con, $reset_attempts);
+mysqli_stmt_bind_param($reset_stmt, "s", $username);
+mysqli_stmt_execute($reset_stmt);
+ob_start();
+header("Location: home.php");
+ob_end_flush();
+exit;
+                        // Set session variables
+                        $_SESSION['name'] = $row['name'];
+                        $_SESSION['username'] = $row['username'];
+                        $_SESSION['role'] = $row['role'];
+                        $_SESSION['position'] = $row['position'];
+                        $_SESSION['user_id'] = $row['id'];
+
+                        // Regenerate session ID to prevent session fixation    
+                        session_regenerate_id(true);
+
+                        // Reset login attempts and unlock the account
+                        $reset_attempts = "UPDATE users SET login_attempts = 0, account_locked = NULL WHERE username=?";
+                        $reset_stmt = mysqli_prepare($con, $reset_attempts);
+                        mysqli_stmt_bind_param($reset_stmt, "s", $username);
+                        mysqli_stmt_execute($reset_stmt);
+
+                        // Redirect to the specified URL or default to home.php
+                        if (isset($_GET['redirect'])) {
+                            $rurl = urldecode($_GET['redirect']);
+                            // SECURITY: Validate redirect URL to prevent open redirect attacks
+                            // Open redirects can be exploited for phishing by redirecting users to malicious sites
+                            // Only allow relative URLs to .php pages within this application
+                            // Reject any URLs containing http:// or https:// (external sites)
+                            if (preg_match('/^[a-zA-Z0-9_\-\.\/\?=&]+\.php/', $rurl) && !preg_match('/^(https?:)?\/\//', $rurl)) {
+                                header("Location: $rurl");
+                                exit;
+                            }
+                        }
+                        // Default redirect if validation fails or no redirect specified
+                        header("Location: home.php");
+                        exit;
+                    } else {
+                        // Handle failed login attempts
+                        $new_attempts = $row['login_attempts'] + 1;
+                        if ($new_attempts >= 3) {
+                            $lock_time = "UPDATE users SET account_locked = DATE_ADD(NOW(), INTERVAL 15 MINUTE), login_attempts = 3 WHERE username=?";
+                            $lock_stmt = mysqli_prepare($con, $lock_time);
+                            mysqli_stmt_bind_param($lock_stmt, "s", $username);
+                            mysqli_stmt_execute($lock_stmt);
+                            $error_message = "Account is temporarily locked for 10 mins due to too many failed login attempts.";
+                        } else {
+                            $update_attempts = "UPDATE users SET login_attempts = ? WHERE username=?";
+                            $update_stmt = mysqli_prepare($con, $update_attempts);
+                            mysqli_stmt_bind_param($update_stmt, "is", $new_attempts, $username);
+                            mysqli_stmt_execute($update_stmt);
+                            $error_message = "Invalid password. Please try again.";
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        $error_message = "No user found with that username.";
+    }
+    mysqli_stmt_close($statement);
 }
-
-// Include the header file
-require 'header.php';
+mysqli_close($con);
 ?>
-<?php
 
-/**
- * Home Page
- * * This script serves as the home page for the web application. It displays a welcome message to the logged-in user, 
- * along with statistics on holding and breeding cages, and provides links to their respective dashboards. 
- * Additionally, it includes a section for general notes.
- * */
-
-// Start a new session or resume the existing session
-session_start();
-
-// Include the database connection file
-require 'dbcon.php';
-
-// Check if the user is logged in, redirect to login page if not logged in
-if (!isset($_SESSION['name'])) {
-    header("Location: index.php"); // Redirect to login page if not logged in
-    exit;
-}
-
-// Fetch the counts for holding and breeding cages
-$holdingCountResult = $con->query("SELECT COUNT(*) AS count FROM holding");
-$holdingCountRow = $holdingCountResult->fetch_assoc();
-$holdingCount = $holdingCountRow['count'];
-
-$matingCountResult = $con->query("SELECT COUNT(*) AS count FROM breeding");
-$matingCountRow = $matingCountResult->fetch_assoc();
-$matingCount = $matingCountRow['count'];
-
-// Fetch the task stats for the logged-in user
-$userId = $_SESSION['user_id'];
-$taskStatsQuery = "
-    SELECT
-        COUNT(*) AS total,
-        SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) AS in_progress,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending
-    FROM tasks
-    WHERE assigned_to = ?
-";
-$stmtTaskStats = $con->prepare($taskStatsQuery);
-$stmtTaskStats->bind_param("i", $userId);
-$stmtTaskStats->execute();
-$taskStatsResult = $stmtTaskStats->get_result();
-$taskStatsRow = $taskStatsResult->fetch_assoc();
-$totalTasks = $taskStatsRow['total'] ?? 0;
-$completedTasks = $taskStatsRow['completed'] ?? 0;
-$inProgressTasks = $taskStatsRow['in_progress'] ?? 0;
-$pendingTasks = $taskStatsRow['pending'] ?? 0;
-
-// Set completedTasks, inProgressTasks, and pendingTasks to zero if totalTasks is zero
-if ($totalTasks == 0) {
-    $completedTasks = 0;
-    $inProgressTasks = 0;
-    $pendingTasks = 0;
-}
-
-// Include the header file
-require 'header.php';
-?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($labName); ?></title>
 
-    <title>Home | <?php echo htmlspecialchars($labName); ?></title>
+    <!-- Favicon and Icons -->
+    <link rel="icon" href="icons/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+    <link rel="icon" sizes="192x192" href="icons/android-chrome-192x192.png">
+    <link rel="icon" sizes="512x512" href="icons/android-chrome-512x512.png">
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Google Font: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap and jQuery JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Custom CSS -->
     <style>
         body,
         html {
@@ -138,175 +292,200 @@ require 'header.php';
             width: 100%;
         }
 
-        .main-content {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            box-sizing: border-box;
+        .carousel img {
+            height: 390px;
+            object-fit: cover;
+            width: 100%;
         }
 
-        /* Estilo para unificar el tamaño de los logos sin distorsionarlos */
-        .home-logo {
-            height: 50px;
-            width: auto;
-            object-fit: contain;
+        .login-form {
+            padding: 10px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-box {
+            transition: transform .2s, box-shadow .2s;
+            border-radius: 10px;
+            padding: 30px;
+            background-color: white;
+            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            margin: 50px 0;
+        }
+
+        .feature-box h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+
+        .feature-box p {
+            margin-bottom: 0;
+        }
+
+        .forgot-password-link {
+            text-align: left;
+            margin-top: 50px;
+        }
+
+        .header {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: center;
+            background-color: #343a40;
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            margin: 0;
+        }
+
+        .header .logo-container {
+            padding: 0;
+            margin: 0;
+        }
+
+        .header img.header-logo {
+            width: 300px;
+            height: auto;
+            display: block;
+            margin: 0;
+        }
+
+        .header h2 {
+            margin-left: 15px;
+            margin-bottom: 0;
+            margin-top: 12px;
+            font-size: 3.5rem;
+            white-space: nowrap;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 500;
+        }
+
+        /* Responsive styling for smaller screens */
+        @media (max-width: 576px) {
+            .header h2 {
+                font-size: 1.8rem;
+                margin-bottom: 5px;
+            }
+
+            .header img.header-logo {
+                width: 150px;
+            }
         }
     </style>
-
 </head>
 
 <body>
-    <div class="main-content content">
-        <?php include('message.php'); ?>
 
-        <?php if ($_SESSION['username'] === 'admin@myvivarium.online' && $_SESSION['role'] === 'admin'): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <strong><i class="fas fa-exclamation-triangle"></i> Security Warning:</strong> You are using the default admin account.
-            For security reasons, please create a new admin user and delete this default account immediately.
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+    <!-- Header Section -->
+    <?php if ($demo === "yes") include('demo/demo-banner.php'); ?>
+    <div class="header">
+        <div class="logo-container">
+            <a href="home.php">
+                <img src="images/logo1.jpg" alt="Logo" class="header-logo">
+            </a>
         </div>
-        <?php endif; ?>
+        <h2><?php echo htmlspecialchars($labName); ?></h2>
+    </div>
 
-        <br>
-        
-        <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-            
-            <h2 class="mb-0">Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>
-                <span style="font-size: smaller; color: #555; border-bottom: 2px solid #ccc; padding: 0 5px;">
-                    [<?php echo htmlspecialchars($_SESSION['position']); ?>]
-                </span>
-            </h2>
-
-            <div class="d-flex align-items-center" style="gap: 15px;">
-                <a href="home.php">
-                    <img src="images/logo1.jpg" alt="Logo Laboratorio" class="home-logo">
-                </a>
-                <a href="#" target="_blank">
-                    <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" class="home-logo">
-                </a>
-                <a href="#" target="_blank">
-                    <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" class="home-logo">
-                </a>
-            </div>
-        </div>
-
-        <h2 class="mt-4">Cages Summary</h2>
-        <div class="card">
-            <div class="card-body">
-                <div class="row mt-4">
-                    <div class="col-md-6 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-primary text-white">
-                                <a href="hc_dash.php" style="color: white; text-decoration: none;">Holding Cage</a>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $holdingCount; ?></h5>
-                                <p class="card-text">Total Entries</p>
-                            </div>
+    <div class="content">
+        <!-- Main Content -->
+        <div class="container mt-4">
+            <div class="row">
+                <!-- Slideshow Column -->
+                <div class="col-md-6">
+                    <div id="labCarousel" class="carousel slide" data-ride="carousel">
+                        <div class="carousel-inner">
+                            <div class="carousel-item active"> <img class="d-block w-100" src="images/DSC_0536.webp" alt="Image 1"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0537.webp" alt="Image 2"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0539.webp" alt="Image 3"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0540.webp" alt="Image 4"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0560.webp" alt="Image 7"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0562.webp" alt="Image 8"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0586.webp" alt="Image 11"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0593.webp" alt="Image 12"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0607.webp" alt="Image 13"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0623.webp" alt="Image 14"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0658.webp" alt="Image 15"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0665.webp" alt="Image 16"> </div>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-primary text-white">
-                                <a href="bc_dash.php" style="color: white; text-decoration: none;">Breeding Cage</a>
+                    <?php if ($demo === "yes") include('demo/demo-disclaimer.php'); ?>
+                </div>
+
+                <!-- Login Form Column -->
+                <div class="col-md-6">
+                    <div class="login-form">
+                        <h3>Login</h3>
+                        <?php if (isset($_SESSION['error_message'])) { ?>
+                            <div class="alert alert-danger">
+                                <?php 
+                                    echo $_SESSION['error_message']; 
+                                    unset($_SESSION['error_message']); // Clear the error message
+                                ?>
                             </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $matingCount; ?></h5>
-                                <p class="card-text">Total Entries</p>
+                        <?php } ?>
+                        <form method="POST" action="">
+                            <div class="form-group">
+                                <label for="username">Email Address</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
                             </div>
-                        </div>
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+
+                            <!-- Conditionally include Cloudflare Turnstile Widget -->
+                            <?php if (!empty($turnstileSiteKey)) { ?>
+                                <div class="cf-turnstile" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
+                                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                            <?php } ?>
+
+                            <button type="submit" class="btn btn-primary" name="login">Login</button>
+                            <a href="register.php" class="btn btn-secondary">Register</a>
+                            <br><br>
+                            <a href="forgot_password.php" class="forgot-password-link">Forgot Password?</a>
+                        </form>
                     </div>
+                    <?php if ($demo === "yes") include('demo/demo-credentials.php'); ?>
                 </div>
             </div>
-        </div>
 
-        <h2 class="mt-4">Summary of Your Tasks</h2>
-        <div class="card" style="margin-top: 20px;">
-            <div class="card-body">
-                <div class="row mt-4">
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-info text-white">
-                                <a href="manage_tasks.php?filter=assigned_to_me" style="color: white; text-decoration: none;">Total Tasks</a>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $totalTasks; ?></h5>
-                                <p class="card-text">Total</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-success text-white">
-                                <a href="manage_tasks.php?search=completed&filter=assigned_to_me" style="color: white; text-decoration: none;">Completed</a>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $completedTasks; ?></h5>
-                                <p class="card-text">Completed</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-warning text-white">
-                                <a href="manage_tasks.php?search=in+progress&filter=assigned_to_me" style="color: white; text-decoration: none;">In Progress</a>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $inProgressTasks; ?></h5>
-                                <p class="card-text">In Progress</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-header bg-danger text-white">
-                                <a href="manage_tasks.php?search=pending&filter=assigned_to_me" style="color: white; text-decoration: none;">Pending</a>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $pendingTasks; ?></h5>
-                                <p class="card-text">Pending</p>
-                            </div>
-                        </div>
-                    </div>
+            <!-- New Row for Unique Features -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <h2 class="text-center">Welcome to the <?php echo htmlspecialchars($labName); ?></h2>
+                    <p class="text-center italic">Elevate Your Research with IoT-Enhanced Colony Management</p>
                 </div>
             </div>
-        </div>
-
-        <div style="margin-top: 50px;">
-            <h2><?php echo htmlspecialchars($labName); ?> - General Notes</h2>
-            <?php include 'nt_app.php'; ?>
         </div>
     </div>
 
+    <!-- Include the footer -->
     <?php include 'footer.php'; ?>
-
     <script>
         function adjustFooter() {
             const footer = document.getElementById('footer');
-            const container = document.querySelector('.main-content');
-            const header = document.querySelector('.header');
-            const navcontainer = document.querySelector('.nav-container');
+            const container = document.querySelector('.top-container');
 
-            if (!footer || !container) return;
-
-            footer.style.position = 'relative';
-            footer.style.bottom = 'auto';
-            footer.style.width = '100%';
-
-            const headerHeight = header ? header.offsetHeight : 0;
-            const navcontainerHeight = navcontainer ? navcontainer.offsetHeight : 0;
-            const footerHeight = footer.offsetHeight;
-
-            const availableSpace = window.innerHeight - headerHeight - navcontainerHeight;
-            const contentHeight = container.scrollHeight + footerHeight;
-
-            if (contentHeight < availableSpace) {
-                footer.style.position = 'absolute';
-                footer.style.bottom = '0';
-            } else {
+            if (footer && container) {
+                // Remove inline styles to calculate natural height
                 footer.style.position = 'relative';
+                footer.style.bottom = 'auto';
+
+                const containerHeight = container.offsetHeight;
+                const windowHeight = window.innerHeight;
+
+                // If content is shorter than viewport, fix the footer at the bottom
+                if (containerHeight < windowHeight) {
+                    footer.style.position = 'absolute';
+                    footer.style.bottom = '0';
+                } else {
+                    footer.style.position = 'relative';
+                    footer.style.bottom = 'auto';
+                }
             }
         }
 

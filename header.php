@@ -1,74 +1,37 @@
 <?php
+// Security Headers
+header("X-Frame-Options: SAMEORIGIN");
+header("X-Content-Type-Options: nosniff");
+header("X-XSS-Protection: 1; mode=block");
+header("Referrer-Policy: strict-origin-when-cross-origin");
+header("Permissions-Policy: geolocation=(), microphone=(), camera=()");
 
-/**
- * Header and Navigation Menu
- *
- * This script generates a header and navigation menu for the web application. The header displays the lab name and logo,
- * and the navigation menu includes links to various dashboards and settings, with additional options for admin users.
- *
- */
-
-// Security Headers - Protect against common web vulnerabilities
-header("X-Frame-Options: SAMEORIGIN"); // Prevent clickjacking
-header("X-Content-Type-Options: nosniff"); // Prevent MIME type sniffing
-header("X-XSS-Protection: 1; mode=block"); // Enable browser XSS protection
-header("Referrer-Policy: strict-origin-when-cross-origin"); // Control referrer information
-header("Permissions-Policy: geolocation=(), microphone=(), camera=()"); // Restrict powerful features
-
-// Include the database connection file
 require 'dbcon.php';
 
-// Query to fetch settings from the database
 $query = "SELECT * FROM settings";
 $result = mysqli_query($con, $query);
 
-// Default lab name if the query fails or returns no result
 $labName = "My Vivarium";
-
-// Initialize sensor variables
 $r1_temp = $r1_humi = $r1_illu = $r1_pres = $r2_temp = $r2_humi = $r2_illu = $r2_pres = "";
 
-// Fetch the settings from the database
 $settings = [];
 while ($row = mysqli_fetch_assoc($result)) {
     $settings[$row['name']] = $row['value'];
 }
 
-// Set variables based on fetched settings
-if (isset($settings['lab_name'])) {
-    $labName = $settings['lab_name'];
-}
-if (isset($settings['url'])) {
-    $url = $settings['url'];
-}
-if (isset($settings['r1_temp'])) {
-    $r1_temp = $settings['r1_temp'];
-}
-if (isset($settings['r1_humi'])) {
-    $r1_humi = $settings['r1_humi'];
-}
-if (isset($settings['r1_illu'])) {
-    $r1_illu = $settings['r1_illu'];
-}
-if (isset($settings['r1_pres'])) {
-    $r1_pres = $settings['r1_pres'];
-}
-if (isset($settings['r2_temp'])) {
-    $r2_temp = $settings['r2_temp'];
-}
-if (isset($settings['r2_humi'])) {
-    $r2_humi = $settings['r2_humi'];
-}
-if (isset($settings['r2_illu'])) {
-    $r2_illu = $settings['r2_illu'];
-}
-if (isset($settings['r2_pres'])) {
-    $r2_pres = $settings['r2_pres'];
-}
+if (isset($settings['lab_name'])) { $labName = $settings['lab_name']; }
+if (isset($settings['r1_temp'])) { $r1_temp = $settings['r1_temp']; }
+if (isset($settings['r1_humi'])) { $r1_humi = $settings['r1_humi']; }
+if (isset($settings['r1_illu'])) { $r1_illu = $settings['r1_illu']; }
+if (isset($settings['r1_pres'])) { $r1_pres = $settings['r1_pres']; }
+if (isset($settings['r2_temp'])) { $r2_temp = $settings['r2_temp']; }
+if (isset($settings['r2_humi'])) { $r2_humi = $settings['r2_humi']; }
+if (isset($settings['r2_illu'])) { $r2_illu = $settings['r2_illu']; }
+if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
@@ -78,153 +41,149 @@ if (isset($settings['r2_pres'])) {
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
-    <link rel="icon" sizes="192x192" href="./icons/android-chrome-192x192.png">
-    <link rel="icon" sizes="512x512" href="./icons/android-chrome-512x512.png">
-    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
-    .header {
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: space-between;
-        align-items: center;
-        background-color: #343a40;
-        color: white;
-        padding: 1rem 2rem;
-        margin: 0;
-    }
-
-    .header h2 {
-        margin: 0;
-        font-size: 2.5rem;
-        white-space: nowrap;
-        font-family: 'Poppins', sans-serif;
-        font-weight: 500;
-    }
-
-    .header .logo-container {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-    }
-
-    .header img.header-logo {
-        height: 60px;
-        width: auto;
-        display: block;
-    }
-
-    @media (max-width: 768px) {
-        .header {
-            flex-direction: column;
-            text-align: center;
-            gap: 15px;
-        }
-        
-        .header h2 {
-            font-size: 1.8rem;
+        body {
+            font-family: 'Poppins', sans-serif;
         }
 
-        .header img.header-logo {
+        /* Nav principal unificado */
+        .modern-navbar {
+            background-color: #343a40;
+            padding: 0.8rem 2rem;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: white !important;
+            white-space: nowrap;
+        }
+
+        .logo-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .logo-container img {
             height: 45px;
+            width: auto;
+            border-radius: 4px;
+            transition: transform 0.2s;
         }
-    }
 
-    .nav-container {
-        background-color: #343a40;
-        padding: 0px 0px 20px 0px;
-        text-align: center;
-        margin: 0;
-    }
+        .logo-container img:hover {
+            transform: scale(1.05);
+        }
 
-    .nav .btn {
-        margin: 0 5px;
-    }
+        .nav-link-btn {
+            margin: 0 4px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-    .dropdown-menu {
-        min-width: auto;
-    }
+        /* Corregir desfases de visualización en pantallas móviles */
+        @media (max-width: 991px) {
+            .logo-container {
+                margin: 1rem 0;
+                justify-content: center;
+            }
+            .navbar-nav {
+                text-align: center;
+                gap: 10px;
+            }
+        }
     </style>
 </head>
 
 <body>
     <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
 
-    <div class="header">
-        <h2><?php echo htmlspecialchars($labName); ?></h2>
-
-        <div class="logo-container">
-            <a href="home.php">
-                <img src="images/logo1.jpg" alt="Logo Laboratorio" class="header-logo">
-            </a>
-            <a href="https://ejemplo.com/icb" target="_blank">
-                <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" class="header-logo">
-            </a>
-            <a href="https://ejemplo.com/cprl" target="_blank">
-                <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" class="header-logo">
-            </a>
-        </div>
-    </div>
-
-    <div class="nav-container">
-        <nav class="nav justify-content-center">
+    <nav class="navbar navbar-expand-lg navbar-dark modern-navbar">
+        <div class="container-fluid">
             
-            <a href="home.php" class="btn btn-primary">
-                <i class="fas fa-home"></i> Home
+            <a class="navbar-brand" href="home.php">
+                <?php echo htmlspecialchars($labName); ?>
             </a>
 
-            <a href="booking.php" class="btn btn-primary">
-                <i class="fas fa-calendar-alt"></i> Room Booking
-            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="dashboardMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-tachometer-alt"></i> Dashboards
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="dashboardMenuButton">
-                    <li><a class="dropdown-item" href="hc_dash.php">Holding Cage</a></li>
-                    <li><a class="dropdown-item" href="bc_dash.php">Breeding Cage</a></li>
-                    <?php
-                    if (!empty($r1_temp) || !empty($r1_humi) || !empty($r1_illu) || !empty($r1_pres) || !empty($r2_temp) || !empty($r2_humi) || !empty($r2_illu) || !empty($r2_pres)) {
-                        echo '<li><a class="dropdown-item" href="iot_sensors.php">IOT Sensors</a></li>';
-                    }
-                    ?>
-                </ul>
-            </div>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                
+                <div class="logo-container mx-auto">
+                    <a href="home.php">
+                        <img src="images/logo1.jpg" alt="Logo Laboratorio">
+                    </a>
+                    <a href="https://ejemplo.com/icb" target="_blank">
+                        <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB">
+                    </a>
+                    <a href="https://ejemplo.com/cprl" target="_blank">
+                        <img src="images/logo_CPRL.jpeg" alt="Logo CPRL">
+                    </a>
+                </div>
 
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="settingsMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-cog"></i> Settings
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="settingsMenuButton">
-                    <li><a class="dropdown-item" href="user_profile.php">User Profile</a></li>
-                    <li><a class="dropdown-item" href="manage_tasks.php">Tasks &amp; Reminders</a></li>
-                    <?php
-                    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-                        echo '<li><hr class="dropdown-divider"></li>';
-                        echo '<li class="dropdown-header">Administration</li>';
-                        echo '<li><a class="dropdown-item" href="manage_users.php">Manage Users</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_iacuc.php">Manage IACUC</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_strain.php">Manage Strain</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_lab.php">Manage Lab</a></li>';
-                        echo '<li><a class="dropdown-item" href="export_data.php">Export CSV</a></li>';
-                        echo '<li><hr class="dropdown-divider"></li>';
-                    }
-                    ?>
-                    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
-                </ul>
+                <div class="navbar-nav ms-auto">
+                    
+                    <a href="home.php" class="btn btn-outline-light nav-link-btn">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+
+                    <a href="booking.php" class="btn btn-outline-light nav-link-btn">
+                        <i class="fas fa-calendar-alt"></i> Reservas
+                    </a>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle nav-link-btn" type="button" id="dashMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-tachometer-alt"></i> Dashboards
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dashMenu">
+                            <li><a class="dropdown-item" href="hc_dash.php">Holding Cage</a></li>
+                            <li><a class="dropdown-item" href="bc_dash.php">Breeding Cage</a></li>
+                            <?php if (!empty($r1_temp) || !empty($r1_humi) || !empty($r1_illu) || !empty($r1_pres) || !empty($r2_temp) || !empty($r2_humi) || !empty($r2_illu) || !empty($r2_pres)): ?>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="iot_sensors.php"><i class="fas fa-microchip me-1"></i> IOT Sensors</a></li>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle nav-link-btn" type="button" id="setMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-cog"></i> Ajustes
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="setMenu">
+                            <li><a class="dropdown-item" href="user_profile.php"><i class="fas fa-user-circle me-1"></i> Mi Perfil</a></li>
+                            <li><a class="dropdown-item" href="manage_tasks.php"><i class="fas fa-tasks me-1"></i> Tareas</a></li>
+                            
+                            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+                                <li><hr class="dropdown-divider"></li>
+                                <li class="dropdown-header">Administración</li>
+                                <li><a class="dropdown-item" href="manage_users.php">Usuarios</a></li>
+                                <li><a class="dropdown-item" href="manage_iacuc.php">IACUC</a></li>
+                                <li><a class="dropdown-item" href="manage_strain.php">Cepas</a></li>
+                                <li><a class="dropdown-item" href="manage_lab.php">Ajustes del Lab</a></li>
+                                <li><a class="dropdown-item" href="export_data.php">Exportar CSV</a></li>
+                            <?php endif; ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="logout.php"><i class="fas fa-sign-out-alt me-1"></i> Salir</a></li>
+                        </ul>
+                    </div>
+
+                </div>
             </div>
-        </nav>
-    </div>
+        </div>
+    </nav>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

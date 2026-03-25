@@ -16,7 +16,7 @@ ini_set('display_errors', 0);
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; 
+    exit;
 }
 
 if (empty($_SESSION['csrf_token'])) {
@@ -35,8 +35,30 @@ $userResult = $con->query($userQuery);
 $query1 = "SELECT id, initials, name FROM users WHERE position = 'Principal Investigator' AND status = 'approved'";
 $result1 = $con->query($query1);
 
-$strainQuery = "SELECT str_id, str_name FROM strains ORDER BY str_name ASC";
+// --- NUEVO CÓDIGO PARA CEPAS (IGUAL QUE HC_EDIT) ---
+$strainQuery = "SELECT str_id, str_name, str_aka FROM strains";
 $strainResult = $con->query($strainQuery);
+
+$strainOptions = [];
+
+while ($strainrow = $strainResult->fetch_assoc()) {
+    $str_id = htmlspecialchars($strainrow['str_id'] ?? 'Unknown');
+    $str_name = htmlspecialchars($strainrow['str_name'] ?? 'Unnamed Strain');
+    $str_aka = $strainrow['str_aka'] ? htmlspecialchars($strainrow['str_aka']) : '';
+
+    $strainOptions[] = "$str_id | $str_name";
+
+    if (!empty($str_aka)) {
+        $akaNames = explode(', ', $str_aka);
+        foreach ($akaNames as $aka) {
+            $strainOptions[] = "$str_id | " . htmlspecialchars(trim($aka));
+        }
+    }
+}
+
+sort($strainOptions, SORT_STRING);
+// ----------------------------------------------------
+
 
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($con, $_GET['id']);
@@ -93,9 +115,9 @@ if (isset($_GET['id'])) {
         }
         $stmtUsers->close();
 
-        $currentUserId = $_SESSION['user_id']; 
-        $userRole = $_SESSION['role']; 
-        $cageUsers = $selectedUsers; 
+        $currentUserId = $_SESSION['user_id'];
+        $userRole = $_SESSION['role'];
+        $cageUsers = $selectedUsers;
 
         if ($userRole !== 'admin' && !in_array($currentUserId, $cageUsers)) {
             $_SESSION['message'] = 'Acceso denegado. Solo administradores o usuarios asignados pueden editar.';
@@ -113,10 +135,10 @@ if (isset($_GET['id'])) {
 
             $cage_id = trim(mysqli_real_escape_string($con, $_POST['cage_id']));
             $pi_name = mysqli_real_escape_string($con, $_POST['pi_name']);
-            $pairing_date = mysqli_real_escape_string($con, $_POST['pairing_date']); // Guardamos fecha en 'cross'
-            $strain = mysqli_real_escape_string($con, $_POST['strain']); // Guardamos nueva cepa
-            $iacuc = isset($_POST['iacuc']) ? $_POST['iacuc'] : []; 
-            $users = isset($_POST['user']) ? $_POST['user'] : []; 
+            $pairing_date = mysqli_real_escape_string($con, $_POST['pairing_date']);
+            $strain = mysqli_real_escape_string($con, $_POST['strain']);
+            $iacuc = isset($_POST['iacuc']) ? $_POST['iacuc'] : [];
+            $users = isset($_POST['user']) ? $_POST['user'] : [];
             
             $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 1;
             $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 1;
@@ -141,7 +163,6 @@ if (isset($_GET['id'])) {
                 $updateCageQuery->execute();
                 $updateCageQuery->close();
 
-                // 💾 Se actualiza tanto 'strain' como 'cross' (fecha)
                 $updateBreedingQuery = $con->prepare("UPDATE breeding SET `cross` = ?, `strain` = ?, male_n = ?, male_id = ?, female_n = ?, female_id = ?, male_dob = ?, female_dob = ? WHERE cage_id = ?");
                 $updateBreedingQuery->bind_param("sssisssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
                 $updateBreedingQuery->execute();
@@ -238,7 +259,6 @@ if (isset($_GET['id'])) {
                 }
             }
 
-            // PROCESAMIENTO LITTERS
             $litter_dob = isset($_POST['litter_dob']) ? $_POST['litter_dob'] : [];
             $delete_litter_ids = isset($_POST['delete_litter_ids']) ? $_POST['delete_litter_ids'] : [];
 
@@ -449,7 +469,6 @@ require 'header.php';
             actualizarMachos(true);
             actualizarHembras(true);
 
-            // Select2 init
             $('#user').select2({ placeholder: "Seleccionar Usuario(s)", allowClear: true, width: '100%' });
             $('#iacuc').select2({ placeholder: "Seleccionar Protocolo IACUC", allowClear: true, width: '100%' });
             $('#strain').select2({ placeholder: "Seleccionar Cepa", allowClear: true, width: '100%' });
@@ -509,33 +528,31 @@ require 'header.php';
                                 </select>
                             </div>
 
+                           
                             <div class="col-md-6">
                                 <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
-                                    <option value="" disabled <?= empty($breedingcage['strain']) ? 'selected' : ''; ?>>
-                                        Seleccionar Cepa
-                                    </option> <?php
-$strainExists = false;
+                                    <option value="" disabled <?= empty($breedingcage['strain']) ? 'selected' : ''; ?>>Seleccionar Cepa</option>
+                                    <?php
+                                    $strainExists = false;
 
-    foreach ($strainOptions as $option) {
-        $value = explode(" | ", $option)[0];
-        $selected = ($value == $breedingcage['strain']) ? 'selected' : '';
+                                    foreach ($strainOptions as $option) {
+                                        $value = explode(" | ", $option)[0];
+                                        $selected = ($value == $breedingcage['strain']) ? 'selected' : '';
 
-        if ($value == $breedingcage['strain']) {
-            $strainExists = true;
-        }
+                                        if ($value == $breedingcage['strain']) {
+                                            $strainExists = true;
+                                        }
 
-        echo "<option value='$value' $selected>$option</option>";
-    }
+                                        echo "<option value='$value' $selected>$option</option>";
+                                    }
 
-    // Si no existe el strain actual
-    if (!$strainExists && !empty($breedingcage['strain'])) {
-        $currentStrainId = htmlspecialchars($breedingcage['strain']);
-        echo "<option value='$currentStrainId' disabled selected>$currentStrainId | Unknown Strain</option>";
-    }
-    ?>
-</select>
-                                
+                                    if (!$strainExists && !empty($breedingcage['strain'])) {
+                                        $currentStrainId = htmlspecialchars($breedingcage['strain']);
+                                        echo "<option value='$currentStrainId' disabled selected>$currentStrainId | Cepa Desconocida</option>";
+                                    }
+                                    ?>
+                                </select>
                             </div>
 
                             <div class="col-md-6">

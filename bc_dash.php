@@ -115,7 +115,6 @@ require 'header.php';
             font-family: Arial, sans-serif;
         }
 
-        /* Alineando dimensiones al estándar de los formularios previos */
         .main-card {
             border: none;
             border-radius: 12px;
@@ -123,7 +122,6 @@ require 'header.php';
             background-color: #ffffff;
         }
 
-        /* Caja de búsqueda modernizada */
         .search-card {
             background-color: #ffffff;
             border: 1px solid #e3e6f0;
@@ -146,7 +144,6 @@ require 'header.php';
             margin-bottom: 0;
         }
 
-        /* Estilización de cabeceras de tabla */
         .table-wrapper th {
             background-color: #eaecf4;
             color: #4e73df;
@@ -163,7 +160,6 @@ require 'header.php';
             background-color: #fff;
         }
 
-        /* Botonera estandarizada */
         .btn-modern {
             padding: 0.6rem 1.2rem;
             border-radius: 8px;
@@ -245,8 +241,8 @@ require 'header.php';
                     <table class="table table-hover" id="mouseTable">
                         <thead>
                             <tr>
-                                <th style="width: 50%;">Cage ID</th>
-                                <th style="width: 50%;">Action</th>
+                                <th>Cage ID</th>
+                                <th style="width: 1%; white-space: nowrap; text-align: center;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody">

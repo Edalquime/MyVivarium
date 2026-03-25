@@ -1,41 +1,39 @@
 <?php
 /**
- * Task Detail Fetcher
- * 
- * This script fetches the details of a specific task from the database based on the provided task ID.
- * It first checks if the user is logged in, then retrieves the task details from the database, and finally
- * returns the task information as a JSON response.
- * 
- */
+ * Obtener Detalles de Tarea
+ * * Este script obtiene los detalles de una tarea específica de la base de datos basándose en el ID de tarea proporcionado.
+ * Primero verifica si el usuario ha iniciado sesión, luego recupera los detalles de la tarea de la base de datos y, finalmente,
+ * devuelve la información de la tarea como una respuesta JSON.
+ * */
 
-// Start the session to use session variables
+// Iniciar la sesión para usar variables de sesión
 session_start();
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 
-// Initialize the response array
+// Inicializar el array de respuesta
 $response = [];
 
-// Check if a valid task ID is provided via GET request
+// Verificar si se proporciona un ID de tarea válido a través de la solicitud GET
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-    // Validate and sanitize the task ID
+    // Validar y sanear el ID de la tarea
     $taskId = intval($_GET['id']);
 
-    // Prepare the SQL statement to prevent SQL injection
+    // Preparar la sentencia SQL para prevenir inyecciones SQL
     $stmt = $con->prepare("SELECT * FROM tasks WHERE id = ?");
     $stmt->bind_param("i", $taskId);
 
-    // Execute the query and get the result
+    // Ejecutar la consulta y obtener el resultado
     if ($stmt->execute()) {
         $result = $stmt->get_result();
 
-        // Check if a matching task is found
+        // Verificar si se encuentra una tarea coincidente
         if ($result->num_rows > 0) {
-            // Fetch task data if a matching task is found
+            // Obtener los datos de la tarea si se encuentra una coincidencia
             $task = $result->fetch_assoc();
 
-            // Populate the response array with task data
+            // Poblar el array de respuesta con los datos de la tarea
             $response = [
                 'id' => $task['id'],
                 'title' => $task['title'],
@@ -48,22 +46,22 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                 'cage_id' => $task['cage_id']
             ];
         } else {
-            // Set error response if no matching task is found
-            $response = ['error' => 'Task not found.'];
+            // Establecer respuesta de error si no se encuentra la tarea coincidente
+            $response = ['error' => 'Tarea no encontrada.'];
         }
 
-        // Close the statement
+        // Cerrar la sentencia
         $stmt->close();
     } else {
-        // Set error response if the query execution fails
-        $response = ['error' => 'Error executing query: ' . $stmt->error];
+        // Establecer respuesta de error si la ejecución de la consulta falla
+        $response = ['error' => 'Error al ejecutar la consulta: ' . $stmt->error];
     }
 } else {
-    // Set error response if the task ID is invalid
-    $response = ['error' => 'Invalid task ID.'];
+    // Establecer respuesta de error si el ID de la tarea no es válido
+    $response = ['error' => 'ID de tarea inválido.'];
 }
 
-// Output the response as JSON
+// Imprimir la respuesta como JSON
 header('Content-Type: application/json');
 echo json_encode($response);
 ?>

@@ -310,6 +310,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         successCallback(JSON.parse(data));
                     }
                 });
+            // 🔥 NUEVA FUNCIÓN: Leer la sala desde la URL y abrir la pestaña correspondiente
+    const urlParams = new URLSearchParams(window.location.search);
+    const salaParam = urlParams.get('sala'); // Captura el ?sala=sala4
+
+    if (salaParam) {
+        // Mapeamos el parámetro de la URL con el ID del botón de la pestaña real
+        const tabsIdMap = {
+            'sala1': 'sala1-tab',
+            'sala4': 'sala4-tab',
+            'sala5': 'sala5-tab',
+            'cuarentena': 'cuarentena-tab',
+            'procedimientos': 'procedimientos-tab',
+            'conducta': 'conducta-tab',
+            'cfcrotarod': 'cfcrotarod-tab'
+        };
+
+        const targetTabId = tabsIdMap[salaParam];
+        const tabToClick = document.getElementById(targetTabId);
+
+        if (tabToClick) {
+            // Usamos el constructor de Bootstrap para activar la pestaña visualmente
+            var tabTrigger = new bootstrap.Tab(tabToClick);
+            tabTrigger.show();
+        }
+    }
             },
             eventClick: function(info) {
                 if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {

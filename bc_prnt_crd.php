@@ -3,13 +3,12 @@
 /**
  * Breeding Cage Printable Card Script
  *
- * Muestra las tarjetas de reproducción en formato 2x2.
- * Ahora extrae el Teléfono y Correo de los usuarios vinculados directamente a la caja.
+ * Muestra las tarjetas de reproducción en formato 2x2 en español.
+ * Extrae el Teléfono y Correo de los usuarios, la Cepa (Strain) y la Fecha de Cruce.
  */
 
 session_start();
 
-// Activar reporte de errores para desarrollo (puedes pasarlo a 0 en producción)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -35,11 +34,12 @@ if (isset($_GET['id'])) {
     $breedingcages = [];
 
     foreach ($ids as $id) {
-        // Consulta base segura (solo Breeding, Cages y PI)
-        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name
+        // 🔍 Consulta extendida: Unimos con la tabla strains para sacar el nombre de la cepa
+        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, s.str_name, s.str_aka
                   FROM breeding b
                   LEFT JOIN cages c ON b.cage_id = c.cage_id
                   LEFT JOIN users pi ON c.pi_name = pi.id
+                  LEFT JOIN strains s ON b.strain = s.str_id
                   WHERE b.cage_id = ?";
         
         $stmt = $con->prepare($query);
@@ -62,7 +62,7 @@ if (isset($_GET['id'])) {
             }
             $breedingcage['litters'] = $litters;
 
-            // 🔥 NUEVA FUNCIÓN: Rescatar Iniciales, Teléfonos y Correos de los Usuarios de la Caja
+            // Contacto de Usuarios
             $contactData = getUsersContactByCageId($con, $id);
             $breedingcage['user_initials'] = $contactData['initials'];
             $breedingcage['contact_phone'] = $contactData['phones'];
@@ -70,21 +70,17 @@ if (isset($_GET['id'])) {
 
             $breedingcages[] = $breedingcage;
         } else {
-            $_SESSION['message'] = "Invalid ID: $id";
+            $_SESSION['message'] = "ID inválido: $id";
             header("Location: bc_dash.php");
             exit();
         }
     }
 } else {
-    $_SESSION['message'] = 'ID parameter is missing.';
+    $_SESSION['message'] = 'Falta el parámetro ID.';
     header("Location: bc_dash.php");
     exit();
 }
 
-/**
- * Función centralizada que extrae la información de contacto de todos los usuarios 
- * vinculados a una caja específica en la tabla pivot `cage_users`.
- */
 function getUsersContactByCageId($con, $cageId)
 {
     $query = "SELECT u.initials, u.username, u.phone 
@@ -201,24 +197,32 @@ function getIacucIdsByCageId($con, $cageId)
 
             <?php if ($index % 2 === 0) : ?>
                 <tr style="height: 3in; border: 1px dashed #D3D3D3; vertical-align:top;">
-                <?php endif; ?>
+            <?php endif; ?>
 
                 <td style="width: 5in; border: 1px dashed #D3D3D3;">
                     <table border="1" style="width: 5in; height: 1.5in;" id="cageA">
                         <tr>
                             <td colspan="3" style="width: 100%; text-align:center;">
                                 <span style="font-weight: bold; font-size: 10pt; text-transform: uppercase; padding:3px;">
-                                    Breeding Cage - # <?= $breedingcage["cage_id"] ?> </span>
+                                    JAULA DE CRUCE - # <?= $breedingcage["cage_id"] ?> </span>
                             </td>
                         </tr>
                         <tr>
                             <td style="width:40%;">
-                                <span style="font-weight: bold; text-transform: uppercase;">PI Name:</span>
-                                <span><?= htmlspecialchars($breedingcage["pi_name"]); ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Nombre PI:</span>
+                                <span><?= htmlspecialchars($breedingcage["pi_name"] ?? 'N/A'); ?></span>
                             </td>
                             <td style="width:40%;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Cross:</span>
-                                <span><?= $breedingcage["cross"] ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Cepa:</span>
+                                <span>
+                                    <?php 
+                                        $strainDisplay = htmlspecialchars($breedingcage['str_name'] ?? 'N/A');
+                                        if(!empty($breedingcage['str_aka'])) {
+                                            $strainDisplay .= " [" . htmlspecialchars($breedingcage['str_aka']) . "]";
+                                        }
+                                        echo $strainDisplay;
+                                    ?>
+                                </span>
                             </td>
                             <td rowspan="4" style="width:20%; text-align:center; vertical-align:middle;">
                                 <img src="<?php echo "https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=https://" . $url . "/bc_view.php?id=" . $breedingcage["cage_id"] . "&choe=UTF-8"; ?>" alt="QR Code">
@@ -226,36 +230,36 @@ function getIacucIdsByCageId($con, $cageId)
                         </tr>
                         <tr>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">IACUC:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Protocolo IACUC:</span>
                                 <span><?= htmlspecialchars(getIacucIdsByCageId($con, $breedingcage['cage_id'])); ?></span>
                             </td>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">User (Initials):</span>
-                                <span><?= $breedingcage['user_initials']; ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Fecha de Cruce:</span>
+                                <span><?= htmlspecialchars($breedingcage["cross"]); ?></span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">User Phone:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Teléfono Usuario:</span>
                                 <span style="font-size: 7.5pt;"><?= $breedingcage["contact_phone"] ?></span>
                             </td>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">User Email:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Email Usuario:</span>
                                 <span style="font-size: 7pt; word-break: break-all;"><?= $breedingcage["contact_email"] ?></span>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Male ID (<?= $breedingcage["male_n"] ?? 1 ?>):</span>
-                                <span><?= $breedingcage["male_id"] ?></span><br>
-                                <span style="font-weight: bold; text-transform: uppercase;">DOB:</span>
-                                <span><?= $breedingcage["male_dob"] ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">ID Macho (<?= $breedingcage["male_n"] ?? 1 ?>):</span>
+                                <span><?= htmlspecialchars($breedingcage["male_id"]) ?></span><br>
+                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac.:</span>
+                                <span><?= htmlspecialchars($breedingcage["male_dob"]) ?></span>
                             </td>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Female ID (<?= $breedingcage["female_n"] ?? 1 ?>):</span>
-                                <span><?= $breedingcage["female_id"] ?></span><br>
-                                <span style="font-weight: bold; text-transform: uppercase;">DOB:</span>
-                                <span><?= $breedingcage["female_dob"] ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">ID Hembra (<?= $breedingcage["female_n"] ?? 1 ?>):</span>
+                                <span><?= htmlspecialchars($breedingcage["female_id"]) ?></span><br>
+                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac.:</span>
+                                <span><?= htmlspecialchars($breedingcage["female_dob"]) ?></span>
                             </td>
                         </tr>
                     </table>
@@ -263,37 +267,37 @@ function getIacucIdsByCageId($con, $cageId)
                     <table border="1" style="width: 5in; height: 1.5in; border-top: none;" id="cageB">
                         <tr>
                             <td style="width:30%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Litter DOB</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Fecha Nac. Camada</span>
                             </td>
                             <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Alive</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Vivos</span>
                             </td>
                             <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Dead</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Muertos</span>
                             </td>
                             <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Male</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Machos</span>
                             </td>
                             <td style="width:17.5%; text-align: center;">
-                                <span style="font-weight: bold; text-transform: uppercase;">Female</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Hembras</span>
                             </td>
                         </tr>
                         <?php for ($i = 0; $i < 5; $i++) : ?>
                             <tr>
                                 <td style="width:30%; padding:3px;">
-                                    <span><?= isset($breedingcage['litters'][$i]['litter_dob']) ? $breedingcage['litters'][$i]['litter_dob'] : '' ?></span>
+                                    <span><?= isset($breedingcage['litters'][$i]['litter_dob']) ? htmlspecialchars($breedingcage['litters'][$i]['litter_dob']) : '' ?></span>
                                 </td>
                                 <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_alive']) ? $breedingcage['litters'][$i]['pups_alive'] : '' ?></span>
+                                    <span><?= isset($breedingcage['litters'][$i]['pups_alive']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_alive']) : '' ?></span>
                                 </td>
                                 <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_dead']) ? $breedingcage['litters'][$i]['pups_dead'] : '' ?></span>
+                                    <span><?= isset($breedingcage['litters'][$i]['pups_dead']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_dead']) : '' ?></span>
                                 </td>
                                 <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_male']) ? $breedingcage['litters'][$i]['pups_male'] : '' ?></span>
+                                    <span><?= isset($breedingcage['litters'][$i]['pups_male']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_male']) : '' ?></span>
                                 </td>
                                 <td style="width:17.5%; padding:3px; text-align:center;">
-                                    <span><?= isset($breedingcage['litters'][$i]['pups_female']) ? $breedingcage['litters'][$i]['pups_female'] : '' ?></span>
+                                    <span><?= isset($breedingcage['litters'][$i]['pups_female']) ? htmlspecialchars($breedingcage['litters'][$i]['pups_female']) : '' ?></span>
                                 </td>
                             </tr>
                         <?php endfor; ?>

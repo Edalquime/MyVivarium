@@ -512,14 +512,30 @@ require 'header.php';
                             <div class="col-md-6">
                                 <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
-                                    <option value="" disabled>Seleccionar Cepa</option>
-                                    <?php
-                                    while ($row = $strainResult->fetch_assoc()) {
-                                        $selected = ($row['str_id'] == $breedingcage['strain']) ? 'selected' : '';
-                                        echo "<option value='{$row['str_id']}' $selected>{$row['str_name']}</option>";
-                                    }
-                                    ?>
-                                </select>
+                                    <option value="" disabled <?= empty($breedingcage['strain']) ? 'selected' : ''; ?>>
+                                        Seleccionar Cepa
+                                    </option> <?php
+$strainExists = false;
+
+    foreach ($strainOptions as $option) {
+        $value = explode(" | ", $option)[0];
+        $selected = ($value == $breedingcage['strain']) ? 'selected' : '';
+
+        if ($value == $breedingcage['strain']) {
+            $strainExists = true;
+        }
+
+        echo "<option value='$value' $selected>$option</option>";
+    }
+
+    // Si no existe el strain actual
+    if (!$strainExists && !empty($breedingcage['strain'])) {
+        $currentStrainId = htmlspecialchars($breedingcage['strain']);
+        echo "<option value='$currentStrainId' disabled selected>$currentStrainId | Unknown Strain</option>";
+    }
+    ?>
+</select>
+                                
                             </div>
 
                             <div class="col-md-6">

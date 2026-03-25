@@ -40,12 +40,11 @@ if (isset($_GET['id'])) {
     $breedingcages = []; // Initialize an array to store breeding cage data
 
     foreach ($ids as $id) {
-        // SQL MODIFICADO: Se asocia `cages.user_id` con `users` para obtener teléfono y correo
-        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, u.username AS contact_email, u.phone AS contact_phone
+       // SQL CORREGIDO: Usamos al Investigador Principal (pi) para sacar el correo y teléfono
+        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, pi.username AS contact_email, pi.phone AS contact_phone
         FROM breeding b
         LEFT JOIN cages c ON b.cage_id = c.cage_id
         LEFT JOIN users pi ON c.pi_name = pi.id
-        LEFT JOIN users u ON c.user_id = u.id
         WHERE b.cage_id = ?";
         
         $stmt = $con->prepare($query);

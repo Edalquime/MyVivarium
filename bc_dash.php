@@ -1,29 +1,29 @@
 <?php
 
 /**
- * Breeding Cage Dashboard Script
+ * Script del Panel de Control de Jaulas de Cruce (Breeding Cages)
  *
- * This script displays a dashboard for managing breeding cages. It starts a session, checks if the user is logged in,
- * and includes the necessary header and database connection files. The HTML part of the script includes the structure
- * for displaying breeding cages, search functionality, and actions such as adding a new cage or printing cage cards.
- * The script uses JavaScript for handling search, pagination, and confirmation dialogs.
+ * Este script muestra un panel para gestionar jaulas de cruce. Inicia sesión, verifica si el usuario está autenticado,
+ * e incluye los archivos de cabecera y conexión a la base de datos necesarios. La parte HTML incluye la estructura
+ * para mostrar las jaulas de cruce, funcionalidad de búsqueda y acciones como agregar una nueva jaula.
+ * Utiliza JavaScript para manejar la búsqueda, paginación y diálogos de confirmación.
  *
  */
 
-// Start a new session or resume the existing session
+// Iniciar una nueva sesión o reanudar la existente
 session_start();
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
+// Verificar si el usuario no ha iniciado sesión, redirigirlo a index.php con la URL actual para redirección posterior
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit; // Salir para asegurar que no se ejecute más código
 }
 
-// Include the header file
+// Incluir el archivo de cabecera
 require 'header.php';
 ?>
 
@@ -40,22 +40,22 @@ require 'header.php';
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
-        // Initialize tooltips when the document is ready
+        // Inicializar tooltips cuando el documento esté listo
         $(document).ready(function() {
             $('body').tooltip({
                 selector: '[data-toggle="tooltip"]'
             });
         });
 
-        // Confirm deletion function with a dialog
+        // Función de confirmación de eliminación con un cuadro de diálogo
         function confirmDeletion(id) {
-            var confirmDelete = confirm("Are you sure you want to delete cage - '" + id + "' and related mouse data?");
+            var confirmDelete = confirm("¿Estás seguro de que deseas eliminar la jaula '" + id + "' y los datos de ratones relacionados?");
             if (confirmDelete) {
-                window.location.href = "bc_drop.php?id=" + id + "&confirm=true"; // Redirect to deletion script
+                window.location.href = "bc_drop.php?id=" + id + "&confirm=true"; // Redirigir al script de eliminación
             }
         }
 
-        // Fetch data function to load data dynamically
+        // Función para cargar datos dinámicamente vía AJAX
         function fetchData(page = 1, search = '') {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'bc_fetch_data.php?page=' + page + '&search=' + encodeURIComponent(search), true);
@@ -64,11 +64,11 @@ require 'header.php';
                     try {
                         var response = JSON.parse(xhr.responseText);
                         if (response.tableRows && response.paginationLinks) {
-                            document.getElementById('tableBody').innerHTML = response.tableRows; // Insert table rows
-                            document.getElementById('paginationLinks').innerHTML = response.paginationLinks; // Insert pagination links
-                            document.getElementById('searchInput').value = search; // Preserve search input
+                            document.getElementById('tableBody').innerHTML = response.tableRows; // Insertar filas
+                            document.getElementById('paginationLinks').innerHTML = response.paginationLinks; // Insertar paginación
+                            document.getElementById('searchInput').value = search; // Preservar entrada de búsqueda
 
-                            // Update the URL with the current page and search query
+                            // Actualizar la URL con la página actual y la consulta de búsqueda sin recargar
                             const newUrl = new URL(window.location.href);
                             newUrl.searchParams.set('page', page);
                             newUrl.searchParams.set('search', search);
@@ -76,28 +76,28 @@ require 'header.php';
                                 path: newUrl.href
                             }, '', newUrl.href);
                         } else {
-                            console.error('Invalid response format:', response);
+                            console.error('Formato de respuesta inválido:', response);
                         }
                     } catch (e) {
-                        console.error('Error parsing JSON response:', e);
+                        console.error('Error parseando la respuesta JSON:', e);
                     }
                 } else {
-                    console.error('Request failed. Status:', xhr.status);
+                    console.error('La solicitud falló. Estado:', xhr.status);
                 }
             };
             xhr.onerror = function() {
-                console.error('Request failed. An error occurred during the transaction.');
+                console.error('La solicitud falló. Ocurrió un error durante la transacción.');
             };
             xhr.send();
         }
 
-        // Search function to initiate data fetch based on search query
+        // Función de búsqueda para iniciar la obtención de datos basada en el texto ingresado
         function searchCages() {
             var searchQuery = document.getElementById('searchInput').value;
             fetchData(1, searchQuery);
         }
 
-        // Fetch initial data when the DOM content is loaded
+        // Obtener datos iniciales cuando el contenido del DOM esté cargado
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             const page = urlParams.get('page') || 1;
@@ -107,7 +107,7 @@ require 'header.php';
     </script>
 
 
-    <title>Dashboard Breeding Cage | <?php echo htmlspecialchars($labName); ?></title>
+    <title>Panel de Jaulas de Cruce | <?php echo htmlspecialchars($labName); ?></title>
 
     <style>
         body {
@@ -209,16 +209,16 @@ require 'header.php';
 
         <div class="card main-card">
             <div class="card-header bg-dark text-white p-3 d-flex flex-column flex-md-row justify-content-between align-items-center" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
-                <h4 class="mb-0 fs-5"><i class="fas fa-layer-group me-2"></i> Breeding Cage Dashboard</h4>
+                <h4 class="mb-0 fs-5"><i class="fas fa-layer-group me-2"></i> Panel de Jaulas de Cruce</h4>
                 
                 <div class="action-icons mt-3 mt-md-0">
-                    <a href="bc_addn.php" class="btn btn-primary btn-icon" data-toggle="tooltip" data-placement="top" title="Add New Cage">
+                    <a href="bc_addn.php" class="btn btn-primary btn-icon" data-toggle="tooltip" data-placement="top" title="Añadir Nueva Jaula">
                         <i class="fas fa-plus"></i>
                     </a>
-                    <a href="bc_slct_crd.php" class="btn btn-success btn-icon" data-toggle="tooltip" data-placement="top" title="Print Cage Card">
+                    <a href="bc_slct_crd.php" class="btn btn-success btn-icon" data-toggle="tooltip" data-placement="top" title="Imprimir Tarjeta de Jaula">
                         <i class="fas fa-print"></i>
                     </a>
-                    <a href="maintenance.php?from=bc_dash" class="btn btn-warning btn-icon" data-toggle="tooltip" data-placement="top" title="Cage Maintenance">
+                    <a href="maintenance.php?from=bc_dash" class="btn btn-warning btn-icon" data-toggle="tooltip" data-placement="top" title="Mantenimiento de Jaulas">
                         <i class="fas fa-wrench"></i>
                     </a>
                 </div>
@@ -228,10 +228,10 @@ require 'header.php';
                 
                 <div class="search-card">
                     <div class="input-group">
-                        <input type="text" id="searchInput" class="form-control" style="height: calc(1.5em + 1rem + 2px); border-radius: 8px 0 0 8px;" placeholder="Search by Cage ID, Strain or PI..." onkeyup="searchCages()">
+                        <input type="text" id="searchInput" class="form-control" style="height: calc(1.5em + 1rem + 2px); border-radius: 8px 0 0 8px;" placeholder="Buscar por ID de Jaula..." onkeyup="searchCages()">
                         <div class="input-group-append">
                             <button class="btn btn-primary btn-modern" style="border-radius: 0 8px 8px 0;" type="button" onclick="searchCages()">
-                                <i class="fas fa-search"></i> Search
+                                <i class="fas fa-search"></i> Buscar
                             </button>
                         </div>
                     </div>
@@ -241,8 +241,8 @@ require 'header.php';
                     <table class="table table-hover" id="mouseTable">
                         <thead>
                             <tr>
-                                <th>Cage ID</th>
-                                <th style="width: 1%; white-space: nowrap; text-align: center;">Action</th>
+                                <th>ID de la Jaula</th>
+                                <th style="width: 1%; white-space: nowrap; text-align: center;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody">
@@ -250,7 +250,7 @@ require 'header.php';
                     </table>
                 </div>
 
-                <nav aria-label="Page navigation">
+                <nav aria-label="Navegación de páginas">
                     <ul class="pagination justify-content-center" id="paginationLinks">
                         </ul>
                 </nav>

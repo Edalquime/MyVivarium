@@ -6,10 +6,17 @@ error_reporting(E_ALL);
 
 session_start();
 require 'dbcon.php';
-// ... (el resto de tu código)
-// censo.php
-session_start();
-require 'dbcon.php';
+
+// 🛑 COMENTAMOS EL BLOQUEO TEMPORALMENTE:
+/*
+if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
+    header("Location: home.php");
+    exit;
+}
+*/
+
+require 'header.php';
+// ... el resto de tu código
 
 // 🔐 SEGURIDAD: Solo administradores pueden entrar
 if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {

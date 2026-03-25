@@ -93,137 +93,88 @@ if (isset($settings['r2_pres'])) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        .header {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            background-color: #343a40;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            margin: 0;
-        }
+    .header {
+        display: flex;
+        flex-wrap: nowrap; /* Evita que los logos salten hacia abajo */
+        justify-content: space-between; /* Texto a la izquierda, logos a la derecha */
+        align-items: center;
+        background-color: #343a40;
+        color: white;
+        padding: 1rem 2rem; /* Más espaciado a los lados */
+        margin: 0;
+    }
 
-        .header .logo-container {
-            padding: 0;
-            margin: 0;
+    .header h2 {
+        margin: 0;
+        font-size: 2.5rem; /* Un tamaño más maniobrable */
+        white-space: nowrap;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
+    }
+
+    .header .logo-container {
+        display: flex;
+        gap: 15px; /* Espacio entre los tres logos */
+        align-items: center;
+    }
+
+    /* Tamaño unificado para los tres logos */
+    .header img.header-logo {
+        height: 60px; /* Tamaño prudente para un header */
+        width: auto;
+        display: block;
+    }
+
+    /* Responsive para celulares */
+    @media (max-width: 768px) {
+        .header {
+            flex-direction: column; /* En celulares se apilan verticalmente */
+            text-align: center;
+            gap: 15px;
+        }
+        
+        .header h2 {
+            font-size: 1.8rem;
         }
 
         .header img.header-logo {
-            width: 300px;
-            height: auto;
-            display: block;
-            margin: 0;
+            height: 45px;
         }
+    }
 
-        .header h2 {
-            margin-left: 15px;
-            margin-bottom: 0;
-            margin-top: 12px;
-            font-size: 3.5rem;
-            white-space: nowrap;
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
-        }
+    .nav-container {
+        background-color: #343a40;
+        padding: 0px 0px 20px 0px;
+        text-align: center;
+        margin: 0;
+    }
 
-        /* Responsive styling for smaller screens */
-        @media (max-width: 576px) {
-            .header h2 {
-                font-size: 1.8rem;
-                margin-bottom: 5px;
-            }
+    .nav .btn {
+        margin: 0 5px;
+    }
 
-            .header img.header-logo {
-                width: 150px;
-            }
-        }
-
-        /* Styling for navigation container */
-        .nav-container {
-            background-color: #343a40;
-            padding: 0px 0px 20px 0px;
-            text-align: center;
-            margin: 0;
-        }
-
-        .nav .btn {
-            margin: 0 5px;
-        }
-
-        .dropdown-menu {
-            min-width: auto;
-        }
-    </style>
+    .dropdown-menu {
+        min-width: auto;
+    }
+</style>
 </head>
 
 <body>
     <!-- Header Section -->
-    <?php if ($demo === "yes") include('demo/demo-banner.php'); ?>
-    <div class="header">
-        <div class="logo-container">
-            <a href="home.php">
-                <img src="images/logo1.jpg" alt="Logo" class="header-logo">
-                <img src="images/logo_ICB_2019_2.jpg" alt="Logo" class="header-logo">
-                <img src="images/logo_CPRL.jpeg" alt="Logo" class="header-logo">
-            </a>
-        </div>
-        <h2><?php echo htmlspecialchars($labName); ?></h2>
+<?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
+
+<div class="header">
+    <h2><?php echo htmlspecialchars($labName); ?></h2>
+
+    <div class="logo-container">
+        <a href="home.php">
+            <img src="images/logo1.jpg" alt="Logo Laboratorio" class="header-logo">
+        </a>
+        <a href="https://ejemplo.com/icb" target="_blank">
+            <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" class="header-logo">
+        </a>
+        <a href="https://ejemplo.com/cprl" target="_blank">
+            <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" class="header-logo">
+        </a>
     </div>
-
-    <!-- Navigation Menu Section -->
-    <div class="nav-container">
-        <nav class="nav justify-content-center">
-            <a href="home.php" class="btn btn-primary">
-                <i class="fas fa-home"></i> Home
-            </a>
-
-            <!-- Dropdown for Dashboard -->
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="dashboardMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-tachometer-alt"></i> Dashboards
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="dashboardMenuButton">
-                    <li><a class="dropdown-item" href="hc_dash.php">Holding Cage</a></li>
-                    <li><a class="dropdown-item" href="bc_dash.php">Breeding Cage</a></li>
-                    <?php
-                    if (!empty($r1_temp) || !empty($r1_humi) || !empty($r1_illu) || !empty($r1_pres) || !empty($r2_temp) || !empty($r2_humi) || !empty($r2_illu) || !empty($r2_pres)) {
-                        echo '<li><a class="dropdown-item" href="iot_sensors.php">IOT Sensors</a></li>';
-                    }
-                    ?>
-                </ul>
-            </div>
-
-            <!-- Dropdown for Settings -->
-            <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" type="button" id="settingsMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-cog"></i> Settings
-                </button>
-                <ul class="dropdown-menu" aria-labelledby="settingsMenuButton">
-                    <li><a class="dropdown-item" href="user_profile.php">User Profile</a></li>
-                    <li><a class="dropdown-item" href="manage_tasks.php">Tasks &amp; Reminders</a></li>
-                    <?php
-                    // Display admin options if the user is an admin
-                    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-                        echo '<li><hr class="dropdown-divider"></li>';
-                        echo '<li class="dropdown-header">Administration</li>';
-                        echo '<li><a class="dropdown-item" href="manage_users.php">Manage Users</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_iacuc.php">Manage IACUC</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_strain.php">Manage Strain</a></li>';
-                        echo '<li><a class="dropdown-item" href="manage_lab.php">Manage Lab</a></li>';
-                        echo '<li><a class="dropdown-item" href="export_data.php">Export CSV</a></li>';
-                        echo '<li><hr class="dropdown-divider"></li>';
-                    }
-                    ?>
-                    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
-                </ul>
-            </div>
-        </nav>
-    </div>
-
-    <!-- Bootstrap and jQuery JS -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
-</body>
-
-</html>
+</div>

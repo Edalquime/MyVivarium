@@ -231,7 +231,22 @@ require 'header.php';
                                 <tbody>
                                     <?php foreach ($estados_salas as $nombre_sala => $data): ?>
                                         <tr>
-                                            <td style="font-weight: 600; color: #3c4043;"><?php echo $nombre_sala; ?></td>
+                                            <?php 
+    // Generamos un ID amigable para la URL (sin espacios ni mayúsculas)
+    // "Sala 1" -> "sala1", "Sala de Cuarentena" -> "cuarentena", etc.
+    $id_url = 'sala1';
+    if ($nombre_sala === 'Sala 4') $id_url = 'sala4';
+    if ($nombre_sala === 'Sala 5') $id_url = 'sala5';
+    if ($nombre_sala === 'Sala de Cuarentena') $id_url = 'cuarentena';
+    if ($nombre_sala === 'Sala de Procedimientos') $id_url = 'procedimientos';
+    if ($nombre_sala === 'Sala de Conducta') $id_url = 'conducta';
+    if ($nombre_sala === 'Sala CFC/RotaRod') $id_url = 'cfcrotarod';
+?>
+<td style="font-weight: 600;">
+    <a href="booking.php?sala=<?php echo $id_url; ?>" class="text-decoration-none" style="color: #1a73e8;">
+        <i class="fas fa-external-link-alt fa-sm me-1"></i> <?php echo $nombre_sala; ?>
+    </a>
+</td>
                                             <td class="text-center">
                                                 <?php if ($data['ocupada']): ?>
                                                     <span class="badge bg-danger" style="border-radius: 12px; padding: 6px 12px;">🔴 Ocupada</span>

@@ -69,6 +69,18 @@ require 'header.php';
                         </select>
                     </div>
                     <div class="mb-3">
+    <label class="form-label font-weight-bold">🔍 Filtrar por Sala:</label>
+    <select class="form-select" id="roomFilter" style="max-width: 300px;">
+        <option value="">Todas las salas</option>
+        <option value="Sala de Cirugía">Sala de Cirugía</option>
+        <option value="Sala de Comportamiento">Sala de Comportamiento</option>
+        <option value="Procedimientos Generales">Procedimientos Generales</option>
+        <option value="Cuarentena">Cuarentena</option>
+    </select>
+</div>
+
+<div id="calendar"></div>
+                    <div class="mb-3">
                         <label class="form-label">Título/Descripción de uso</label>
                         <input type="text" class="form-control" name="title" placeholder="Ej: Eutanasia proyecto 32" required>
                     </div>
@@ -91,55 +103,69 @@ require 'header.php';
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var calendarEl = document.getElementById('calendar');
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var roomFilter = document.getElementById('roomFilter');
 
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'timeGridWeek',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            locale: 'es',
-            slotMinTime: '07:00:00',
-            slotMaxTime: '20:00:00',
-            events: 'booking_fetch.php',
-            selectable: true,
-
-            // 🔥 NUEVA FUNCIÓN: Al hacer clic en una reserva existente
-            eventClick: function(info) {
-                // Preguntamos al usuario si desea eliminarla
-                if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {
-                    
-                    // Usamos AJAX para borrarla sin recargar la página
-                    $.ajax({
-                        url: 'booking_action.php',
-                        type: 'POST',
-                        data: {
-                            delete_booking: true,
-                            booking_id: info.event.id
-                        },
-                        success: function(response) {
-                            alert(response); // Mensaje de éxito o error
-                            calendar.refetchEvents(); // Recarga el calendario visualmente
-                        },
-                        error: function() {
-                            alert("Error crítico al intentar comunicarse con el servidor.");
-                        }
-                    });
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridWeek',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        locale: 'es',
+        slotMinTime: '07:00:00',
+        slotMaxTime: '20:00:00',
+        
+        // 🔥 Modificado: Enviamos el parámetro 'room' al archivo PHP
+        events: function(fetchInfo, successCallback, failureCallback) {
+            $.ajax({
+                url: 'booking_fetch.php',
+                type: 'GET',
+                data: {
+                    room: roomFilter.value // Mandamos la sala seleccionada
+                },
+                success: function(data) {
+                    successCallback(JSON.parse(data));
+                },
+                error: function() {
+                    failureCallback();
                 }
+            });
+        },
+        selectable: true,
+
+        eventClick: function(info) {
+            if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {
+                $.ajax({
+                    url: 'booking_action.php',
+                    type: 'POST',
+                    data: {
+                        delete_booking: true,
+                        booking_id: info.event.id
+                    },
+                    success: function(response) {
+                        alert(response);
+                        calendar.refetchEvents(); // Recarga
+                    }
+                });
             }
-        });
-
-        calendar.render();
-
-        // Limitar fechas pasadas en el modal de creación
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('start_event').min = now.toISOString().slice(0,16);
-        document.getElementById('end_event').min = now.toISOString().slice(0,16);
+        }
     });
+
+    calendar.render();
+
+    // 🔥 Escuchar cuando el usuario cambia de sala en el desplegable
+    roomFilter.addEventListener('change', function() {
+        calendar.refetchEvents(); // Esto obliga a llamar de nuevo a booking_fetch.php con el nuevo filtro
+    });
+
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('start_event').min = now.toISOString().slice(0,16);
+    document.getElementById('end_event').min = now.toISOString().slice(0,16);
+});
 </script>
 
 <?php include 'footer.php'; ?>

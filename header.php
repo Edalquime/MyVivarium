@@ -164,6 +164,8 @@ if (isset($settings['r2_pres'])) {
         <div class="logo-container">
             <a href="home.php">
                 <img src="images/logo1.jpg" alt="Logo" class="header-logo">
+                <img src="images/logo_ICB_2019_2.jpg" alt="Logo" class="header-logo">
+                <img src="images/logo_CPRL.jpeg" alt="Logo" class="header-logo">
             </a>
         </div>
         <h2><?php echo htmlspecialchars($labName); ?></h2>

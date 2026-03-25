@@ -1,10 +1,13 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL & ~E_DEPRECATED);
 
 /**
  * Add New Breeding Cage Script
+ *
+ * This script handles the creation of new breeding cages in a laboratory management system. It starts a session,
+ * regenerates the session ID to prevent session fixation attacks, and checks if the user is logged in.
+ * It generates a CSRF token for form submissions, retrieves a list of Principal Investigators (PIs),
+ * and processes the form submission for adding a new breeding cage. The script also includes the functionality
+ * to add litter data associated with the breeding cage.
  */
 
 session_start();
@@ -43,9 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_ids = $_POST['user'] ?? [];
     
     $male_n = $_POST['male_n'] ?? 1; 
-    $male_id = $_POST['male_id'];
+    $male_id = $_POST['male_id'] ?? 1;
     $female_n = $_POST['female_n'] ?? 1; 
-    $female_id = $_POST['female_id'];
+    $female_id = $_POST['female_id'] ?? 1;
     
     $male_dob_array = $_POST['male_dob'] ?? [];
     $female_dob_array = $_POST['female_dob'] ?? [];

@@ -1,5 +1,8 @@
 <?php
-
+// 🔥 ESTO MOSTRARÁ EL ERROR REAL EN PANTALLA
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 /**
  * Breeding Cage Printable Card Script
  *

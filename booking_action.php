@@ -94,12 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_booking'])) {
     }
 
     // 2. Validación básica: No se pueden hacer reservas en el pasado
-    $now = date('Y-m-d H:i:s');
-    if (strtotime($start_event) < strtotime($now)) {
-        $_SESSION['message'] = "Error: No puedes reservar horarios que ya pasaron.";
-        header("Location: booking.php");
-        exit();
-    }
+ $now_with_tolerance = strtotime("-5 minutes"); // Restamos 5 minutos al reloj del servidor
+
+if (strtotime($start_event) < $now_with_tolerance) {
+    $_SESSION['message'] = "Error: No puedes reservar horarios que ya pasaron.";
+    header("Location: booking.php");
+    exit();
+}
 
     /* 3. VALIDACIÓN DE TRASLAPE (COLISIÓN DE HORARIOS):
      Buscamos si existe AL MENOS UNA reserva para la MISMA SALA donde:

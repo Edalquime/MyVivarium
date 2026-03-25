@@ -1,4 +1,4 @@
-<?php
+ <?php
 
 /**
  * Header and Navigation Menu
@@ -74,7 +74,6 @@ if (isset($settings['r2_pres'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Favicon and icons for different devices -->
     <link rel="icon" href="./icons/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
@@ -83,13 +82,10 @@ if (isset($settings['r2_pres'])) {
     <link rel="icon" sizes="512x512" href="./icons/android-chrome-512x512.png">
     <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
 
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 
-    <!-- Google Font: Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
@@ -156,25 +152,80 @@ if (isset($settings['r2_pres'])) {
     .dropdown-menu {
         min-width: auto;
     }
-</style>
+    </style>
 </head>
 
 <body>
-    <!-- Header Section -->
-<?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
+    <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
 
-<div class="header">
-    <h2><?php echo htmlspecialchars($labName); ?></h2>
+    <div class="header">
+        <h2><?php echo htmlspecialchars($labName); ?></h2>
 
-    <div class="logo-container">
-        <a href="home.php">
-            <img src="images/logo1.jpg" alt="Logo Laboratorio" class="header-logo">
-        </a>
-        <a href="https://ejemplo.com/icb" target="_blank">
-            <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" class="header-logo">
-        </a>
-        <a href="https://ejemplo.com/cprl" target="_blank">
-            <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" class="header-logo">
-        </a>
+        <div class="logo-container">
+            <a href="home.php">
+                <img src="images/logo1.jpg" alt="Logo Laboratorio" class="header-logo">
+            </a>
+            <a href="https://ejemplo.com/icb" target="_blank">
+                <img src="images/logo_ICB_2019_2.jpg" alt="Logo ICB" class="header-logo">
+            </a>
+            <a href="https://ejemplo.com/cprl" target="_blank">
+                <img src="images/logo_CPRL.jpeg" alt="Logo CPRL" class="header-logo">
+            </a>
+        </div>
     </div>
-</div>
+
+    <div class="nav-container">
+        <nav class="nav justify-content-center">
+            <a href="home.php" class="btn btn-primary">
+                <i class="fas fa-home"></i> Home
+            </a>
+
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="dashboardMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-tachometer-alt"></i> Dashboards
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="dashboardMenuButton">
+                    <li><a class="dropdown-item" href="hc_dash.php">Holding Cage</a></li>
+                    <li><a class="dropdown-item" href="bc_dash.php">Breeding Cage</a></li>
+                    
+                    <li><a class="dropdown-item" href="booking.php"><i class="fas fa-calendar-alt me-1"></i> Room Booking</a></li>
+                    
+                    <?php
+                    if (!empty($r1_temp) || !empty($r1_humi) || !empty($r1_illu) || !empty($r1_pres) || !empty($r2_temp) || !empty($r2_humi) || !empty($r2_illu) || !empty($r2_pres)) {
+                        echo '<li><a class="dropdown-item" href="iot_sensors.php">IOT Sensors</a></li>';
+                    }
+                    ?>
+                </ul>
+            </div>
+
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="settingsMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="settingsMenuButton">
+                    <li><a class="dropdown-item" href="user_profile.php">User Profile</a></li>
+                    <li><a class="dropdown-item" href="manage_tasks.php">Tasks &amp; Reminders</a></li>
+                    <?php
+                    // Display admin options if the user is an admin
+                    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+                        echo '<li><hr class="dropdown-divider"></li>';
+                        echo '<li class="dropdown-header">Administration</li>';
+                        echo '<li><a class="dropdown-item" href="manage_users.php">Manage Users</a></li>';
+                        echo '<li><a class="dropdown-item" href="manage_iacuc.php">Manage IACUC</a></li>';
+                        echo '<li><a class="dropdown-item" href="manage_strain.php">Manage Strain</a></li>';
+                        echo '<li><a class="dropdown-item" href="manage_lab.php">Manage Lab</a></li>';
+                        echo '<li><a class="dropdown-item" href="export_data.php">Export CSV</a></li>';
+                        echo '<li><hr class="dropdown-divider"></li>';
+                    }
+                    ?>
+                    <li><a class="dropdown-item" href="logout.php">Logout</a></li>
+                </ul>
+            </div>
+        </nav>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+</body>
+
+</html>

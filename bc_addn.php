@@ -28,8 +28,33 @@ $piResult = $con->query($piQuery);
 $iacucQuery = "SELECT iacuc_id, iacuc_title FROM iacuc";
 $iacucResult = $con->query($iacucQuery);
 
-$strainQuery = "SELECT str_id, str_name FROM strains ORDER BY str_name ASC";
+
+// --- NUEVO CÓDIGO PARA CEPAS (IGUAL QUE HC_EDIT / BC_EDIT) ---
+$strainQuery = "SELECT str_id, str_name, str_aka FROM strains";
 $strainResult = $con->query($strainQuery);
+
+$strainOptions = [];
+
+while ($strainrow = $strainResult->fetch_assoc()) {
+    $str_id = htmlspecialchars($strainrow['str_id'] ?? 'Unknown');
+    $str_name = htmlspecialchars($strainrow['str_name'] ?? 'Unnamed Strain');
+    $str_aka = $strainrow['str_aka'] ? htmlspecialchars($strainrow['str_aka']) : '';
+
+    $strainOptions[] = "$str_id | $str_name";
+
+    if (!empty($str_aka)) {
+        // Separamos por comas en caso de haber múltiples alias
+        $akaNames = explode(', ', $str_aka);
+        foreach ($akaNames as $aka) {
+            $strainOptions[] = "$str_id | " . htmlspecialchars(trim($aka));
+        }
+    }
+}
+
+// Ordenar todas las opciones combinadas alfabéticamente
+sort($strainOptions, SORT_STRING);
+// -------------------------------------------------------------
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -396,13 +421,15 @@ require 'header.php';
                                     ?>
                                 </select>
                             </div>
+
                             <div class="col-md-6">
                                 <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
                                     <option value="" disabled selected>Seleccionar Cepa</option>
                                     <?php
-                                    while ($row = $strainResult->fetch_assoc()) {
-                                        echo "<option value='{$row['str_id']}'>{$row['str_name']}</option>";
+                                    foreach ($strainOptions as $option) {
+                                        $value = explode(" | ", $option)[0]; // El id para la base de datos
+                                        echo "<option value='$value'>$option</option>";
                                     }
                                     ?>
                                 </select>

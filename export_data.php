@@ -2,117 +2,120 @@
 
 /**
  * Database Table Exporter
- * 
- * This PHP script allows administrators to export all database tables into CSV files and package them into a ZIP file for download.
- * The script first verifies if the user is logged in and has admin privileges. It then retrieves all table names from the database,
- * creates CSV files for each table, and stores these CSV files in a ZIP archive. The ZIP file is then provided for download.
- * 
+ * * This PHP script allows administrators to export all database tables into CSV files 
+ * and package them into a ZIP file for download.
  */
 
-// Start the session to use session variables
+// Iniciamos almacenamiento en búfer para evitar que cualquier "espacio en blanco" accidental rompa el ZIP
+ob_start();
 session_start();
 
 // Include the database connection file
 include 'dbcon.php';
 
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit; 
 }
 
-// Check if the user has admin privileges
 if ($_SESSION['role'] != 'admin') {
-    // Set an error message and redirect to the index page if not an admin
     $_SESSION['message'] = "Access Denied. Contact Admin";
     header("Location: index.php");
     exit();
 }
 
+// Desactivar límite de tiempo por si la base de datos es pesada
+set_time_limit(0);
+
 /**
- * Export a single table to CSV format.
- * 
- * @param object $con Database connection object.
- * @param string $tableName Name of the table to export.
- * @return string CSV content as a string.
+ * Export a single table to CSV using temporary files (Low RAM consumption)
  */
 function exportTableToCSV($con, $tableName)
 {
-    // Define a specific query for the 'users' table; otherwise, select all columns
-    $query = ($tableName == 'users') ? "SELECT id, name, username, position, role, status FROM `$tableName`" : "SELECT * FROM `$tableName`";
+    $query = ($tableName == 'users') 
+        ? "SELECT id, name, username, position, role, status FROM `$tableName`" 
+        : "SELECT * FROM `$tableName`";
+        
     $result = $con->query($query);
 
-    // Check if the query execution was successful
     if (!$result) {
-        echo "Failed to retrieve data from $tableName: " . $con->error;
-        return '';
+        return false;
     }
 
-    // Fetch column names
+    // Creamos un archivo temporal en el disco (No en la RAM)
+    $tempCsv = tempnam(sys_get_temp_dir(), 'csv_');
+    $output = fopen($tempCsv, 'w');
+
+    // Escribir encabezados
     $columns = $result->fetch_fields();
-    $csvContent = '';
-
-    // Start output buffering to store CSV content
-    ob_start();
-    $output = fopen('php://output', 'w');
-
-    // Write column headers to the CSV
     $headers = [];
     foreach ($columns as $column) {
         $headers[] = $column->name;
     }
     fputcsv($output, $headers);
 
-    // Write data rows to the CSV
+    // Escribir filas
     while ($row = $result->fetch_assoc()) {
         fputcsv($output, $row);
     }
 
-    // Close the output stream
     fclose($output);
-    $csvContent = ob_get_clean();
+    $result->free(); // Liberar memoria del query de MySQL
 
-    return $csvContent;
+    return $tempCsv; // Retornamos la ruta del archivo físico
 }
 
-// Query to get all table names from the database
 $tableQuery = "SHOW TABLES";
 $tableResult = $con->query($tableQuery);
 
-// Check if the table names retrieval was successful
 if (!$tableResult) {
     die("Error retrieving tables: " . $con->error);
 }
 
-// Set headers to prompt the browser to download the ZIP file
-header('Content-Type: application/zip');
-header('Content-Disposition: attachment;filename="exported_data.zip"');
-
-// Create a new ZIP archive
+// Crear el archivo ZIP físico en el sistema
 $zip = new ZipArchive();
-$zipFilename = tempnam(sys_get_temp_dir(), 'zip');
-$zip->open($zipFilename, ZipArchive::CREATE);
+$zipFilename = tempnam(sys_get_temp_dir(), 'export_zip_');
 
-// Loop through each table and add the corresponding CSV to the ZIP archive
-while ($tableRow = $tableResult->fetch_row()) {
-    $tableName = $tableRow[0];
-    $csvContent = exportTableToCSV($con, $tableName);
-    $zip->addFromString($tableName . '.csv', $csvContent);
+if ($zip->open($zipFilename, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+    die("Cannot open ZIP file for writing");
 }
 
-// Close the ZIP archive
+$tempFilesToClean = [];
+
+while ($tableRow = $tableResult->fetch_row()) {
+    $tableName = $tableRow[0];
+    $csvFile = exportTableToCSV($con, $tableName);
+    
+    if ($csvFile !== false) {
+        // Añadir el archivo físico al ZIP
+        $zip->addFile($csvFile, $tableName . '.csv');
+        $tempFilesToClean[] = $csvFile; // Guardar ruta para borrarlo después
+    }
+}
+
 $zip->close();
 
-// Output the ZIP file for download
+// Limpiamos CUALQUIER eco previo o espacio en blanco que se haya colado antes de disparar las cabeceras
+ob_end_clean();
+
+// Encabezados para forzar la descarga del ZIP real
+header('Content-Type: application/zip');
+header('Content-Disposition: attachment; filename="exported_data.zip"');
+header('Content-Length: ' . filesize($zipFilename));
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Mandar el archivo al navegador
 readfile($zipFilename);
 
-// Delete the temporary ZIP file after download
-unlink($zipFilename);
+// --- LIMPIEZA DEL DISCO DEL SERVIDOR ---
+unlink($zipFilename); // Borrar el ZIP temporal
+foreach ($tempFilesToClean as $file) {
+    if (file_exists($file)) {
+        unlink($file); // Borrar los CSV temporales
+    }
+}
 
-// Set a session message for successful export confirmation
-$_SESSION['message'] = "Data exported successfully!";
-
-// Close the database connection
 $con->close();
 exit();

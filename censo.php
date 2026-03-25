@@ -9,46 +9,22 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 require 'header.php';
 
-// Activamos errores por si acaso
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+echo '<div class="container mt-4"><h3>🔍 Inspección de la Tabla `mice`</h3>';
 
-echo '<div class="container mt-4"><h3>🔍 Diagnóstico del Censo Corregido</h3>';
+// Le pedimos a MySQL que nos diga qué columnas tiene la tabla 'mice'
+$inspect_query = "SHOW COLUMNS FROM mice";
+$result = mysqli_query($con, $inspect_query);
 
-// --- CONSULTA 1: INVESTIGADORES ---
-$query_pi = "
-    SELECT u.name AS pi_name, 
-           COUNT(m.mouse_id) AS total_mice
-    FROM users u
-    LEFT JOIN cages c ON u.id = c.pi_name
-    LEFT JOIN mice m ON c.cage_id = m.cage_id
-    GROUP BY u.id, u.name
-";
-
-$res_pi = mysqli_query($con, $query_pi);
-
-if (!$res_pi) {
-    echo '<div class="alert alert-danger">❌ Error en Consulta 1 (Investigadores): ' . mysqli_error($con) . '</div>';
+if ($result) {
+    echo '<div class="alert alert-info">📋 Estas son las columnas reales de tu tabla de ratones:</div>';
+    echo '<ul class="list-group mb-4">';
+    while ($row = mysqli_fetch_assoc($result)) {
+        // Imprime el nombre de cada columna
+        echo '<li class="list-group-item"><strong>' . htmlspecialchars($row['Field']) . '</strong> (Tipo: ' . htmlspecialchars($row['Type']) . ')</li>';
+    }
+    echo '</ul>';
 } else {
-    echo '<div class="alert alert-success">✅ Consulta 1 ejecutada con éxito.</div>';
-}
-
-
-// --- CONSULTA 2: CEPAS (Corregido m.strain) ---
-$query_cepa = "
-    SELECT s.str_name AS strain_name, COUNT(m.mouse_id) AS total
-    FROM mice m
-    INNER JOIN strains s ON m.strain = s.str_id
-    GROUP BY s.str_name
-";
-
-$res_cepa = mysqli_query($con, $query_cepa);
-
-if (!$res_cepa) {
-    echo '<div class="alert alert-danger">❌ Error en Consulta 2 (Cepas): ' . mysqli_error($con) . '</div>';
-} else {
-    echo '<div class="alert alert-success">✅ Consulta 2 ejecutada con éxito.</div>';
+    echo '<div class="alert alert-danger">❌ No se pudo leer la tabla mice: ' . mysqli_error($con) . '</div>';
 }
 
 echo '</div>';

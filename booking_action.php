@@ -1,4 +1,10 @@
 <?php
+// Forzar la zona horaria local del Bioterio (Ejemplo para Chile)
+date_default_timezone_set('America/Santiago'); 
+
+// Ejemplo para México: date_default_timezone_set('America/Mexico_City');
+// Ejemplo para Colombia/Perú: date_default_timezone_set('America/Bogota');
+
 /**
  * Booking Action Processor
  * Handles creation, validation, and collision prevention for room bookings.

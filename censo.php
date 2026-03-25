@@ -1,28 +1,21 @@
-<?php
-
-/**
- * Censo General de Animales
- * * Este script genera un recuento de animales totales sumando los contemplados en Holding y Breeding,
- * discriminando por Investigador Principal (PI) y por Cepa.
- * Solo los usuarios con rol de 'admin' pueden acceder.
- */
-
+<?php 
 session_start();
-
-// Ocultar errores en producción (puedes cambiar a 1 si necesitas depurar algo puntual)
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(E_ALL & ~E_DEPRECATED);
-
 require 'dbcon.php';
 
-// 🔐 SEGURIDAD ESTANDARIZADA: Solo administradores (igual que manage_users.php)
+// 1. Quitamos la seguridad temporalmente
+/*
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
-    exit; // Detiene la ejecución para no mostrar nada a usuarios comunes
+    exit;
 }
+*/
 
-require 'header.php';
+// 2. COMENTAMOS EL HEADER temporalmente para ver si él es quien te bota
+// require 'header.php'; 
+
+echo "<h1>¡SI PUEDES VER ESTO, EL PROBLEMA ES EL HEADER.PHP!</h1>";
+exit; // Forzamos a que se detenga aquí
+
 
 // --- 📊 CONSULTA 1: CENSO TOTAL POR P.I. (Investigador Principal) ---
 $query_pi = "

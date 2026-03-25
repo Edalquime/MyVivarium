@@ -243,8 +243,8 @@ require 'header.php';
     if ($nombre_sala === 'Sala CFC/RotaRod') $id_url = 'cfcrotarod';
 ?>
 <td style="font-weight: 600;">
-    <a href="booking.php?sala=<?php echo $id_url; ?>" class="text-decoration-none" style="color: #1a73e8;">
-        <i class="fas fa-external-link-alt fa-sm me-1"></i> <?php echo $nombre_sala; ?>
+    <a href="booking.php?sala=<?php echo $id_url; ?>" class="text-decoration-none" style="color: #212529; display: block;">
+        <?php echo $nombre_sala; ?>
     </a>
 </td>
                                             <td class="text-center">

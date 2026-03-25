@@ -46,14 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_ids = $_POST['user'] ?? [];
     
     $male_n = $_POST['male_n'] ?? 1; 
-    $male_id = $_POST['male_id'] ?? 1;
     $female_n = $_POST['female_n'] ?? 1; 
-    $female_id = $_POST['female_id'] ?? 1;
+
     
+    $male_id = $_POST['male_id'] ?? [];
     $male_dob_array = $_POST['male_dob'] ?? [];
+    $female_id = $_POST['female_id'] ?? [];
     $female_dob_array = $_POST['female_dob'] ?? [];
     $male_dob = implode(', ', $male_dob_array);
+    $male_id = implode(', ', $male_dob_array);
     $female_dob = implode(', ', $female_dob_array);
+    $female_id = implode(', ', $female_id_array);
     
     $remarks = $_POST['remarks'];
 
@@ -216,8 +219,7 @@ require 'header.php';
             const femaleNumInput = document.getElementById('female_n');
             const maleDatesContainer = document.getElementById('male_dates_container');
             const femaleDatesContainer = document.getElementById('female_dates_container');
-            const maleIdInputContainer = document.getElementById('male-id');
-            const femaleIdInputContainer = document.getElementById('female_id');
+    
 
             function actualizarFechasMacho() {
                 const cantidad = parseInt(maleNumInput.value) || 0;

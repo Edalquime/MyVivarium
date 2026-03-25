@@ -458,24 +458,6 @@ mysqli_close($con);
                 <div class="col-md-12">
                     <h2 class="text-center">Welcome to the <?php echo htmlspecialchars($labName); ?></h2>
                     <p class="text-center italic">Elevate Your Research with IoT-Enhanced Colony Management</p>
-
-                    <!-- Feature Box 1 -->
-                    <div class="col-md-6 mb-6 mx-auto feature-box text-center">
-                        <h3>Real-Time Environmental Monitoring</h3>
-                        <p>Gain unparalleled insights into the conditions of your vivarium. Our IoT sensors continuously track temperature and humidity levels, ensuring a stable and controlled environment for your research animals.</p>
-                    </div>
-
-                    <!-- Feature Box 2 -->
-                    <div class="col-md-6 mb-6 mx-auto feature-box text-center">
-                        <h3>Effortless Cage and Mouse Tracking</h3>
-                        <p>Seamlessly monitor every cage and mouse in your facility. No more manual record-keeping or confusion.</p>
-                    </div>
-
-                    <!-- Feature Box 3 -->
-                    <div class="col-md-6 mb-6 mx-auto feature-box text-center">
-                        <h3>Security and Compliance</h3>
-                        <p>Rest easy knowing your data is secure and compliant with industry regulations. We prioritize data integrity and confidentiality.</p>
-                    </div>
                 </div>
             </div>
         </div>

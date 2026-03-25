@@ -8,30 +8,36 @@
  * The script also includes QR codes for quick access to detailed views of each cage.
  */
 
+// Start a new session or resume the existing session
 session_start();
 
+// Include the database connection file
 require 'dbcon.php';
 
+// Check if the user is logged in
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit;
+    exit; // Exit to ensure no further code is executed
 }
 
+// Query to get lab data (URL) from the settings table
 $labQuery = "SELECT value FROM settings WHERE name = 'url' LIMIT 1";
 $labResult = mysqli_query($con, $labQuery);
 
+// Default value if the query fails or returns no result
 $url = "";
 if ($row = mysqli_fetch_assoc($labResult)) {
     $url = $row['value'];
 }
 
+// Check if the ID parameter is set in the URL
 if (isset($_GET['id'])) {
-    $ids = explode(',', $_GET['id']);
-    $breedingcages = [];
+    $ids = explode(',', $_GET['id']); // Split the IDs into an array
+    $breedingcages = []; // Initialize an array to store breeding cage data
 
     foreach ($ids as $id) {
-        // MODIFICACIÓN: Se traen los datos del usuario creador/PI para tener su correo (username) y teléfono (phone)
+        // SQL MODIFICADO: Se asocia `cages.user_id` con `users` para obtener teléfono y correo
         $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, u.username AS contact_email, u.phone AS contact_phone
         FROM breeding b
         LEFT JOIN cages c ON b.cage_id = c.cage_id
@@ -45,7 +51,7 @@ if (isset($_GET['id'])) {
         $result = $stmt->get_result();
 
         if ($result->num_rows === 1) {
-            $breedingcage = $result->fetch_assoc();
+            $breedingcage = $result->fetch_assoc(); // Fetch the breeding cage data
 
             $query1 = "SELECT * FROM litters WHERE cage_id = ? ORDER BY litter_dob DESC LIMIT 5";
             $stmt1 = $con->prepare($query1);
@@ -54,23 +60,27 @@ if (isset($_GET['id'])) {
             $result1 = $stmt1->get_result();
             $litters = [];
             while ($litter = $result1->fetch_assoc()) {
-                $litters[] = $litter;
+                $litters[] = $litter; // Store each litter record
             }
 
+            // Store the breeding cage and its litters
             $breedingcage['litters'] = $litters;
 
+            // Fetch the user initials based on IDs from cage_users table
             $userInitials = getUserInitialsByCageId($con, $id);
             $userDisplayString = implode(', ', $userInitials);
             $breedingcage['user_initials'] = $userDisplayString;
 
             $breedingcages[] = $breedingcage;
         } else {
+            // Set an error message and redirect if the ID is invalid
             $_SESSION['message'] = "Invalid ID: $id";
             header("Location: bc_dash.php");
             exit();
         }
     }
 } else {
+    // If the ID parameter is missing, set an error message and redirect to the dashboard
     $_SESSION['message'] = 'ID parameter is missing.';
     header("Location: bc_dash.php");
     exit();
@@ -113,11 +123,11 @@ function getIacucIdsByCageId($con, $cageId)
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
-    <title>Printable 2x2 Card Table</title>
+    <title>Impresión de Tarjetas 2x2</title>
     <style>
         @page {
             size: letter landscape;
@@ -125,6 +135,7 @@ function getIacucIdsByCageId($con, $cageId)
             padding: 0;
         }
 
+        /* Estilos de impresión */
         @media print {
             body {
                 margin: 0;
@@ -216,11 +227,11 @@ function getIacucIdsByCageId($con, $cageId)
                         </tr>
                         <tr>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Contact Phone:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Phone:</span>
                                 <span style="font-size: 7.5pt;"><?= htmlspecialchars($breedingcage["contact_phone"] ?? 'N/A') ?></span>
                             </td>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Contact Email:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Email:</span>
                                 <span style="font-size: 7pt; word-break: break-all;"><?= htmlspecialchars($breedingcage["contact_email"] ?? 'N/A') ?></span>
                             </td>
                         </tr>
@@ -254,7 +265,7 @@ function getIacucIdsByCageId($con, $cageId)
                             <td style="width:17.5%; text-align: center;">
                                 <span style="font-weight: bold; text-transform: uppercase;">Male</span>
                             </td>
-                            <td style="font-width:17.5%; text-align: center;">
+                            <td style="width:17.5%; text-align: center;">
                                 <span style="font-weight: bold; text-transform: uppercase;">Female</span>
                             </td>
                         </tr>

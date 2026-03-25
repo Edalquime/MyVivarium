@@ -9,38 +9,30 @@
  *
  */
 
-// Start a new session or resume the existing session
 session_start();
 
-// Include the database connection file
 require 'dbcon.php';
 
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit; 
 }
 
-// Disable error display in production (errors logged to server logs)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-// Query to get lab data (URL) from the settings table
 $labQuery = "SELECT value FROM settings WHERE name = 'url' LIMIT 1";
 $labResult = mysqli_query($con, $labQuery);
 
-// Default value if the query fails or returns no result
 $url = "";
 if ($row = mysqli_fetch_assoc($labResult)) {
     $url = $row['value'];
 }
 
-// Check if the ID parameter is set in the URL
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($con, $_GET['id']);
 
-    // Fetch the breeding cage record with the specified ID
     $query = "SELECT b.*, c.remarks AS remarks, pi.initials AS pi_initials, pi.name AS pi_name
           FROM breeding b
           LEFT JOIN cages c ON b.cage_id = c.cage_id
@@ -51,15 +43,14 @@ if (isset($_GET['id'])) {
     $stmt->execute();
     $result = $stmt->get_result();
 
-    // Fetch files associated with the specified cage ID
     $query2 = "SELECT * FROM files WHERE cage_id = ?";
     $stmt2 = $con->prepare($query2);
     $stmt2->bind_param("s", $id);
     $stmt2->execute();
     $files = $stmt2->get_result();
 
-    // Fetch the breeding cage litter records with the specified ID
-    $query3 = "SELECT * FROM litters WHERE `cage_id` = ?";
+    // MODIFICACIÓN: Listar las camadas por Litter DOB descendente
+    $query3 = "SELECT * FROM litters WHERE `cage_id` = ? ORDER BY `litter_dob` DESC";
     $stmt3 = $con->prepare($query3);
     $stmt3->bind_param("s", $id);
     $stmt3->execute();
@@ -191,104 +182,20 @@ require 'header.php';
     </script>
 
     <style>
-        body {
-            background: none !important;
-            background-color: transparent !important;
-        }
-
-        .container {
-            max-width: 800px;
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin: auto;
-        }
-
-        .table-wrapper {
-            padding: 10px;
-        }
-
-        .table-wrapper table {
-            width: 100%;
-            border: 1px solid #000;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .table-wrapper th,
-        .table-wrapper td {
-            border: 1px solid gray;
-            padding: 8px;
-            text-align: left;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
-
-        .table-wrapper th:nth-child(1),
-        .table-wrapper td:nth-child(1) {
-            width: 30%;
-        }
-
-        .table-wrapper th:nth-child(2),
-        .table-wrapper td:nth-child(2) {
-            width: 70%;
-        }
-
-        .remarks-column {
-            max-width: 400px;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-        }
-
-        span {
-            font-size: 12pt;
-            line-height: 1;
-            display: inline-block;
-        }
-
-        .note-app-container {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #e9ecef;
-            border-radius: 8px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn-icon {
-            width: 30px;
-            height: 30px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-        }
-
-        .btn-icon i {
-            font-size: 16px;
-            margin: 0;
-        }
-
-        @media (max-width: 768px) {
-            .table-wrapper th,
-            .table-wrapper td {
-                padding: 12px 8px;
-            }
-
-            .table-wrapper th,
-            .table-wrapper td {
-                text-align: center;
-            }
-        }
+        body { background: none !important; background-color: transparent !important; }
+        .container { max-width: 800px; background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: auto; }
+        .table-wrapper { padding: 10px; }
+        .table-wrapper table { width: 100%; border: 1px solid #000; border-collapse: separate; border-spacing: 0; }
+        .table-wrapper th, .table-wrapper td { border: 1px solid gray; padding: 8px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+        .table-wrapper th:nth-child(1), .table-wrapper td:nth-child(1) { width: 30%; }
+        .table-wrapper th:nth-child(2), .table-wrapper td:nth-child(2) { width: 70%; }
+        .remarks-column { max-width: 400px; word-wrap: break-word; overflow-wrap: break-word; }
+        span { font-size: 12pt; line-height: 1; display: inline-block; }
+        .note-app-container { margin-top: 20px; padding: 20px; background-color: #e9ecef; border-radius: 8px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; }
+        .action-buttons { display: flex; gap: 10px; }
+        .btn-icon { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+        .btn-icon i { font-size: 16px; margin: 0; }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -342,20 +249,20 @@ require 'header.php';
                     </tr>
                     
                     <tr>
-                        <th>Male ID (Qty: <?= $breedingcage['male_n'] ?? 1 ?>)</th>
+                        <th>Male ID(s) [Qty: <?= htmlspecialchars($breedingcage['male_n'] ?? 1); ?>]</th>
                         <td><?= htmlspecialchars($breedingcage['male_id']); ?></td>
                     </tr>
                     <tr>
-                        <th>Male DOB</th>
+                        <th>Male DOB(s)</th>
                         <td><?= htmlspecialchars($breedingcage['male_dob']); ?></td>
                     </tr>
 
                     <tr>
-                        <th>Female ID (Qty: <?= $breedingcage['female_n'] ?? 1 ?>)</th>
+                        <th>Female ID(s) [Qty: <?= htmlspecialchars($breedingcage['female_n'] ?? 1); ?>]</th>
                         <td><?= htmlspecialchars($breedingcage['female_id']); ?></td>
                     </tr>
                     <tr>
-                        <th>Female DOB</th>
+                        <th>Female DOB(s)</th>
                         <td><?= htmlspecialchars($breedingcage['female_dob']); ?></td>
                     </tr>
                     <tr>
@@ -367,11 +274,9 @@ require 'header.php';
                 <hr class="mt-4 mb-4" style="border-top: 3px solid #000;">
 
                 <div class="card mt-4">
-
                     <div class="card-header">
                         <h4>Manage Files</h4>
                     </div>
-
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
@@ -390,11 +295,9 @@ require 'header.php';
                             </tbody>
                         </table>
                     </div>
-
                 </div>
 
                 <div class="card mt-4">
-
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">Litter Details - <?= htmlspecialchars($id) ?></h4>
                     </div>
@@ -431,7 +334,6 @@ require 'header.php';
                             </table>
                         </div>
                     <?php endwhile; ?>
-
                 </div>
 
                 <div class="card mt-4">

@@ -2,7 +2,7 @@
 
 /**
  * Add New Breeding Cage Script
- * Modernized UI to match Home and Header
+ * Interfaz moderna en Español con Fecha de Emparejamiento obligatoria.
  */
 
 session_start();
@@ -34,12 +34,12 @@ $strainResult = $con->query($strainQuery);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die('CSRF token validation failed');
+        die('Validación de token CSRF fallida');
     }
 
     $cage_id = trim($_POST['cage_id']);
     $pi_id = $_POST['pi_name'];
-    $cross = $_POST['cross'];
+    $pairing_date = $_POST['pairing_date']; 
     $strain = $_POST['strain']; 
     $iacuc_ids = $_POST['iacuc'] ?? [];
     $user_ids = $_POST['user'] ?? [];
@@ -65,16 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $check_result = $check_query->get_result();
 
     if ($check_result->num_rows > 0) {
-        $_SESSION['message'] = "Cage ID '$cage_id' already exists. Please use a different Cage ID.";
+        $_SESSION['message'] = "El ID de Jaula '$cage_id' ya existe. Por favor utiliza un ID diferente.";
     } else {
         $insert_cage_query = $con->prepare("INSERT INTO cages (`cage_id`, `pi_name`, `remarks`) VALUES (?, ?, ?)");
         $insert_cage_query->bind_param("sss", $cage_id, $pi_id, $remarks);
 
         $insert_breeding_query = $con->prepare("INSERT INTO breeding (`cage_id`, `cross`, `strain`, `male_n`, `male_id`, `female_n`, `female_id`, `male_dob`, `female_dob`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $insert_breeding_query->bind_param("sssisssss", $cage_id, $cross, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob);
+        $insert_breeding_query->bind_param("sssisssss", $cage_id, $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob);
 
         if ($insert_cage_query->execute() && $insert_breeding_query->execute()) {
-            $_SESSION['message'] = "New breeding cage added successfully.";
+            $_SESSION['message'] = "Nueva jaula de cruce agregada exitosamente.";
 
             foreach ($iacuc_ids as $iacuc_id) {
                 $insert_cage_iacuc_query = $con->prepare("INSERT INTO cage_iacuc (`cage_id`, `iacuc_id`) VALUES (?, ?)");
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } else {
-            $_SESSION['message'] = "Failed to add new breeding cage.";
+            $_SESSION['message'] = "Error al agregar la nueva jaula de cruce.";
         }
 
         $insert_cage_query->close();
@@ -128,7 +128,7 @@ require 'header.php';
 <html lang="es">
 
 <head>
-    <title>Add New Breeding Cage | <?php echo htmlspecialchars($labName); ?></title>
+    <title>Agregar Jaula de Cruce | <?php echo htmlspecialchars($labName); ?></title>
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-beta.1/css/select2.min.css" rel="stylesheet" />
 
@@ -177,7 +177,6 @@ require 'header.php';
             color: #e74a3b;
         }
 
-        /* Alineación limpia para Select2 */
         .select2-container--default .select2-selection--single,
         .select2-container--default .select2-selection--multiple {
             border: 1px solid #d1d3e2;
@@ -235,15 +234,15 @@ require 'header.php';
                     const div = document.createElement('div');
                     div.className = 'mb-3 p-3 border rounded-3 bg-white shadow-sm';
                     div.innerHTML = `
-                        <h6 class="text-primary fw-bold"><i class="fas fa-mars me-2"></i>Male #${i}</h6>
+                        <h6 class="text-primary fw-bold"><i class="fas fa-mars me-2"></i>Macho #${i}</h6>
                         <hr class="my-2">
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <label class="form-label">Male ID <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" name="male_id[]" required placeholder="Ex: M123">
+                                <label class="form-label">ID del Macho <span class="required-asterisk">*</span></label>
+                                <input type="text" class="form-control" name="male_id[]" required placeholder="Ej: M123">
                             </div>
                             <div class="col-md-6 mb-2">
-                                <label class="form-label">Male DOB <span class="required-asterisk">*</span></label>
+                                <label class="form-label">Fecha Nac. del Macho <span class="required-asterisk">*</span></label>
                                 <input type="date" class="form-control" name="male_dob[]" required min="1900-01-01">
                             </div>
                         </div>
@@ -261,15 +260,15 @@ require 'header.php';
                     const div = document.createElement('div');
                     div.className = 'mb-3 p-3 border rounded-3 bg-white shadow-sm';
                     div.innerHTML = `
-                        <h6 class="text-danger fw-bold"><i class="fas fa-venus me-2"></i>Female #${i}</h6>
+                        <h6 class="text-danger fw-bold"><i class="fas fa-venus me-2"></i>Hembra #${i}</h6>
                         <hr class="my-2">
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <label class="form-label">Female ID <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" name="female_id[]" required placeholder="Ex: F123">
+                                <label class="form-label">ID de la Hembra <span class="required-asterisk">*</span></label>
+                                <input type="text" class="form-control" name="female_id[]" required placeholder="Ej: F123">
                             </div>
                             <div class="col-md-6 mb-2">
-                                <label class="form-label">Female DOB <span class="required-asterisk">*</span></label>
+                                <label class="form-label">Fecha Nac. de la Hembra <span class="required-asterisk">*</span></label>
                                 <input type="date" class="form-control" name="female_dob[]" required min="1900-01-01">
                             </div>
                         </div>
@@ -292,32 +291,32 @@ require 'header.php';
                 litterDiv.innerHTML = `
                     <div class="row g-3">
                         <div class="col-md-4">
-                            <label class="form-label">Litter DOB <span class="required-asterisk">*</span></label>
+                            <label class="form-label">Fecha Nac. Camada <span class="required-asterisk">*</span></label>
                             <input type="date" class="form-control" name="litter_dob[]" required min="1900-01-01">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Pups Alive <span class="required-asterisk">*</span></label>
+                            <label class="form-label">Crías Vivas <span class="required-asterisk">*</span></label>
                             <input type="number" class="form-control" name="pups_alive[]" required min="0" step="1" value="0">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Pups Dead <span class="required-asterisk">*</span></label>
+                            <label class="form-label">Crías Muertas <span class="required-asterisk">*</span></label>
                             <input type="number" class="form-control" name="pups_dead[]" required min="0" step="1" value="0">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Pups Male</label>
+                            <label class="form-label">Crías Machos</label>
                             <input type="number" class="form-control" name="pups_male[]" min="0" step="1" value="0">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Pups Female</label>
+                            <label class="form-label">Crías Hembras</label>
                             <input type="number" class="form-control" name="pups_female[]" min="0" step="1" value="0">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Remarks</label>
-                            <textarea class="form-control" name="remarks_litter[]" rows="1"></textarea>
+                            <label class="form-label">Observaciones Camada</label>
+                            <textarea class="form-control" name="remarks_litter[]" rows="1" placeholder="Ej: Buen peso"></textarea>
                         </div>
                         <div class="col-12 text-end">
                             <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeLitter(this)">
-                                <i class="fas fa-trash me-1"></i> Remove Litter
+                                <i class="fas fa-trash me-1"></i> Eliminar Camada
                             </button>
                         </div>
                     </div>
@@ -328,7 +327,6 @@ require 'header.php';
             }
 
             function removeLitter(element) {
-                // Sube hasta encontrar el contenedor .litter-entry
                 element.closest('.litter-entry').remove();
             }
 
@@ -336,19 +334,19 @@ require 'header.php';
             window.removeLitter = removeLitter;
 
             $('#user').select2({
-                placeholder: "Select User(s)",
+                placeholder: "Seleccionar Usuario(s)",
                 allowClear: true,
                 width: '100%'
             });
 
             $('#iacuc').select2({
-                placeholder: "Select IACUC",
+                placeholder: "Seleccionar Protocolo IACUC",
                 allowClear: true,
                 width: '100%'
             });
 
             $('#strain').select2({
-                placeholder: "Select Strain",
+                placeholder: "Seleccionar Cepa",
                 allowClear: true,
                 width: '100%'
             });
@@ -366,8 +364,8 @@ require 'header.php';
 
         <div class="card main-card">
             <div class="card-header bg-dark text-white p-3 d-flex align-items-center justify-content-between" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
-                <h4 class="mb-0 fs-5"><i class="fas fa-plus-circle me-2"></i> Add New Breeding Cage</h4>
-                <span class="badge bg-light text-dark">Fields marked with <span class="text-danger">*</span> are required</span>
+                <h4 class="mb-0 fs-5"><i class="fas fa-plus-circle me-2"></i> Agregar Nueva Jaula de Cruce</h4>
+                <span class="badge bg-light text-dark">Los campos con <span class="text-danger">*</span> son obligatorios</span>
             </div>
 
             <div class="card-body bg-light p-4">
@@ -380,17 +378,17 @@ require 'header.php';
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-cube"></i> General Cage Information
+                            <i class="fas fa-cube"></i> Información General de la Jaula
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="cage_id" class="form-label">Cage ID <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" id="cage_id" name="cage_id" required placeholder="Ex: BC-01">
+                                <label for="cage_id" class="form-label">ID de la Jaula <span class="required-asterisk">*</span></label>
+                                <input type="text" class="form-control" id="cage_id" name="cage_id" required placeholder="Ej: JC-01">
                             </div>
                             <div class="col-md-6">
-                                <label for="pi_name" class="form-label">PI Name <span class="required-asterisk">*</span></label>
+                                <label for="pi_name" class="form-label">Nombre del Investigador Principal (PI) <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="pi_name" name="pi_name" required>
-                                    <option value="" disabled selected>Select PI</option>
+                                    <option value="" disabled selected>Seleccionar PI</option>
                                     <?php
                                     while ($row = $piResult->fetch_assoc()) {
                                         echo "<option value='{$row['id']}'>{$row['initials']} [{$row['name']}]</option>";
@@ -399,9 +397,9 @@ require 'header.php';
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label for="strain" class="form-label">Strain <span class="required-asterisk">*</span></label>
+                                <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
-                                    <option value="" disabled selected>Select Strain</option>
+                                    <option value="" disabled selected>Seleccionar Cepa</option>
                                     <?php
                                     while ($row = $strainResult->fetch_assoc()) {
                                         echo "<option value='{$row['str_id']}'>{$row['str_name']}</option>";
@@ -409,12 +407,14 @@ require 'header.php';
                                     ?>
                                 </select>
                             </div>
+                            
                             <div class="col-md-6">
-                                <label for="cross" class="form-label">Cross <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" id="cross" name="cross" required placeholder="Ex: WT x KO">
+                                <label for="pairing_date" class="form-label">Fecha de Cruce/Armado <span class="required-asterisk">*</span></label>
+                                <input type="date" class="form-control" id="pairing_date" name="pairing_date" required min="1900-01-01">
                             </div>
+
                             <div class="col-md-6">
-                                <label for="iacuc" class="form-label">IACUC Protocol</label>
+                                <label for="iacuc" class="form-label">Protocolo IACUC</label>
                                 <select class="form-control" id="iacuc" name="iacuc[]" multiple>
                                     <?php
                                     while ($iacucRow = $iacucResult->fetch_assoc()) {
@@ -425,7 +425,7 @@ require 'header.php';
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label for="user" class="form-label">Assigned Users <span class="required-asterisk">*</span></label>
+                                <label for="user" class="form-label">Usuarios Asignados <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="user" name="user[]" multiple required>
                                     <?php
                                     while ($userRow = $userResult->fetch_assoc()) {
@@ -439,10 +439,10 @@ require 'header.php';
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-mars"></i> Breeding Males
+                            <i class="fas fa-mars"></i> Machos Reproductores
                         </div>
                         <div class="mb-3">
-                            <label for="male_n" class="form-label">Number of Males <span class="required-asterisk">*</span></label>
+                            <label for="male_n" class="form-label">Cantidad de Machos <span class="required-asterisk">*</span></label>
                             <input type="number" class="form-control" id="male_n" name="male_n" required min="1" step="1" value="1" style="max-width: 200px;">
                         </div>
                         <div id="male_id_container"></div>
@@ -450,10 +450,10 @@ require 'header.php';
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-venus"></i> Breeding Females
+                            <i class="fas fa-venus"></i> Hembras Reproductoras
                         </div>
                         <div class="mb-3">
-                            <label for="female_n" class="form-label">Number of Females <span class="required-asterisk">*</span></label>
+                            <label for="female_n" class="form-label">Cantidad de Hembras <span class="required-asterisk">*</span></label>
                             <input type="number" class="form-control" id="female_n" name="female_n" required min="1" step="1" value="1" style="max-width: 200px;">
                         </div>
                         <div id="female_id_container"></div>
@@ -461,27 +461,27 @@ require 'header.php';
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-comment-dots"></i> General Cage Remarks
+                            <i class="fas fa-comment-dots"></i> Observaciones de la Jaula
                         </div>
-                        <textarea class="form-control" id="remarks" name="remarks" rows="3" placeholder="Add any extra notes here..."></textarea>
+                        <textarea class="form-control" id="remarks" name="remarks" rows="3" placeholder="Añade notas adicionales sobre la jaula aquí..."></textarea>
                     </div>
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-baby"></i> Initial Litter Data (Optional)
+                            <i class="fas fa-baby"></i> Datos Iniciales de la Camada (Opcional)
                         </div>
                         <div id="litterEntries"></div>
                         <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addLitter()">
-                            <i class="fas fa-plus me-1"></i> Add Litter Entry
+                            <i class="fas fa-plus me-1"></i> Añadir Registro de Camada
                         </button>
                     </div>
 
                     <div class="d-flex justify-content-end gap-3 mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
-                            <i class="fas fa-arrow-left me-1"></i> Cancel
+                            <i class="fas fa-arrow-left me-1"></i> Cancelar
                         </button>
                         <button type="submit" class="btn btn-primary btn-modern">
-                            <i class="fas fa-save me-1"></i> Save Cage
+                            <i class="fas fa-save me-1"></i> Guardar Jaula
                         </button>
                     </div>
 

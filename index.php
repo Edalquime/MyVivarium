@@ -1,38 +1,36 @@
 <?php
 
 /**
- * Login Page
- * 
- * This script handles user login, displays login errors, and redirects authenticated users to their intended destination or home page. 
- * It also displays a carousel of images and highlights the features of the web application.
- * 
- */
+ * Página de Inicio de Sesión
+ * * Este script maneja el inicio de sesión del usuario, muestra errores de autenticación y redirige a los usuarios autenticados a su destino previsto o a la página de inicio. 
+ * También muestra un carrusel de imágenes y destaca las características de la aplicación web.
+ * */
 
-// Disable error display in production (errors logged to server logs)
+// Desactivar la visualización de errores en producción (los errores se registran en los logs del servidor)
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-// Start a new session or resume the existing session
+// Iniciar una nueva sesión o reanudar la existente
 session_start();
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('url', 'myvivarium-nel.up.railway.app')");
-mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('lab_name', 'My Vivarium')");
+mysqli_query($con, "INSERT IGNORE INTO settings (name, value) VALUES ('lab_name', 'Mi Vivario')");
 $demo = $_ENV['DEMO'] ?? 'no';
-require 'config.php'; // Include configuration file for SMTP details
-require 'vendor/autoload.php'; // Include PHPMailer autoload file
+require 'config.php'; // Incluir archivo de configuración para detalles de SMTP
+require 'vendor/autoload.php'; // Incluir archivo de carga automática de PHPMailer
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Query to fetch the lab name, URL, and Turnstile keys from the settings table
+// Consulta para obtener el nombre del laboratorio, URL y llaves de Turnstile
 $labQuery = "SELECT name, value FROM settings WHERE name IN ('lab_name', 'url', 'cf-turnstile-secretKey', 'cf-turnstile-sitekey')";
 $labResult = mysqli_query($con, $labQuery);
 
-// Default values if the query fails or returns no result
-$labName = "My Vivarium";
+// Valores por defecto
+$labName = "Mi Vivario";
 $url = "";
 $turnstileSecretKey = "";
 $turnstileSiteKey = "";
@@ -49,17 +47,16 @@ while ($row = mysqli_fetch_assoc($labResult)) {
     }
 }
 
-// Function to send confirmation email
+// Función para enviar correo de confirmación
 function sendConfirmationEmail($to, $token)
 {
     global $url;
     $confirmLink = "https://" . $url . "/confirm_email.php?token=$token";
-    $subject = 'Email Confirmation';
-    $message = "Please click the link below to confirm your email address:\n$confirmLink";
+    $subject = 'Confirmación de Correo Electrónico';
+    $message = "Por favor, haz clic en el siguiente enlace para confirmar tu dirección de correo electrónico:\n$confirmLink";
 
     $mail = new PHPMailer(true);
     try {
-        //Server settings
         $mail->isSMTP();
         $mail->Host = SMTP_HOST;
         $mail->Port = SMTP_PORT;
@@ -68,48 +65,42 @@ function sendConfirmationEmail($to, $token)
         $mail->Password = SMTP_PASSWORD;
         $mail->SMTPSecure = SMTP_ENCRYPTION;
 
-        //Recipients
         $mail->setFrom(SENDER_EMAIL, SENDER_NAME);
         $mail->addAddress($to);
 
-        // Content
         $mail->isHTML(false);
+        $mail->CharSet = 'UTF-8';
         $mail->Subject = $subject;
         $mail->Body = $message;
 
         $mail->send();
     } catch (Exception $e) {
-        error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
+        error_log("No se pudo enviar el mensaje. Error de PHPMailer: {$mail->ErrorInfo}");
     }
 }
 
-// Check if the user is already logged in
+// Comprobar si el usuario ya ha iniciado sesión
 if (isset($_SESSION['name'])) {
-    // Redirect to the specified URL or default to home.php
     if (isset($_GET['redirect'])) {
         $rurl = urldecode($_GET['redirect']);
-        // Validate redirect URL to prevent open redirects
-        // Only allow relative URLs starting with /  or page names
         if (preg_match('/^[a-zA-Z0-9_\-\.\/\?=&]+\.php/', $rurl) && !preg_match('/^(https?:)?\/\//', $rurl)) {
             header("Location: $rurl");
             exit;
         }
     }
-    // Default redirect if validation fails or no redirect specified
     header("Location: home.php");
     exit;
 }
 
-// Handle login form submission
+// Manejar el envío del formulario de inicio de sesión
 if (isset($_POST['login'])) {
     $username = $_POST['username'];
     $password = $_POST['password'];
     
-    // Proceed with Turnstile verification only if Turnstile keys are set
+    // Verificación de Turnstile
     if (!empty($turnstileSiteKey) && !empty($turnstileSecretKey)) {
         $turnstileResponse = $_POST['cf-turnstile-response'];
         
-        // Verify Turnstile token
         $verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
         $data = [
             'secret' => $turnstileSecretKey,
@@ -117,7 +108,6 @@ if (isset($_POST['login'])) {
             'remoteip' => $_SERVER['REMOTE_ADDR']
         ];
 
-        // Send request to verify Turnstile response
         $ch = curl_init($verifyUrl);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
@@ -127,16 +117,13 @@ if (isset($_POST['login'])) {
         curl_close($ch);
         $result = json_decode($response, true);
 
-        // Check Turnstile response success
         if (!$result['success']) {
-            // Store error message in the session to display to the user
-            $_SESSION['error_message'] = "Cloudflare Turnstile verification failed. Please try again.";
+            $_SESSION['error_message'] = "La verificación de Cloudflare Turnstile falló. Inténtalo de nuevo.";
             header("Location: " . htmlspecialchars($_SERVER["PHP_SELF"]));
             exit;
         }
     }
 
-    // Proceed with login validation if Turnstile passed or not required
     $query = "SELECT * FROM users WHERE username=?";
     $statement = mysqli_prepare($con, $query);
     mysqli_stmt_bind_param($statement, "s", $username);
@@ -144,110 +131,73 @@ if (isset($_POST['login'])) {
     $result = mysqli_stmt_get_result($statement);
 
     if ($row = mysqli_fetch_assoc($result)) {
-        // Check if the email is verified
         if ($row['email_verified'] == 0) {
-            // Check if email_token is empty
             if (empty($row['email_token'])) {
-                // Generate a new token
                 $new_token = bin2hex(random_bytes(16));
-
-                // Update the database with the new token
                 $update_token_query = "UPDATE users SET email_token = ? WHERE username = ?";
                 $update_token_stmt = mysqli_prepare($con, $update_token_query);
                 mysqli_stmt_bind_param($update_token_stmt, "ss", $new_token, $username);
                 mysqli_stmt_execute($update_token_stmt);
                 mysqli_stmt_close($update_token_stmt);
 
-                // Use the new token for sending the confirmation email
                 $token = $new_token;
             } else {
-                // Use the existing token
                 $token = $row['email_token'];
             }
 
-            // Send the confirmation email
             sendConfirmationEmail($username, $token);
-
-            // Set error message for the user
-            $error_message = "Your email is not verified. A new verification email has been sent. Please check your email to verify your account.";
+            $error_message = "Tu correo electrónico no está verificado. Se ha enviado un nuevo correo de confirmación. Por favor, revísalo para verificar tu cuenta.";
         } else {
-            // Check if the account status is approved
             if ($row['status'] != 'approved') {
-                $error_message = "Your account is pending admin approval.";
+                $error_message = "Tu cuenta está pendiente de aprobación por el administrador.";
             } else {
-                // Check if the account is locked
                 if (!is_null($row['account_locked']) && new DateTime() < new DateTime($row['account_locked'])) {
-                    $error_message = "Account is temporarily locked. Please try again later.";
+                    $error_message = "La cuenta está bloqueada temporalmente. Inténtalo más tarde.";
                 } else {
-                    // Verify password
                     if (password_verify($password, $row['password'])) {
-$_SESSION['name'] = $row['name'];
-$_SESSION['username'] = $row['username'];
-$_SESSION['role'] = $row['role'];
-$_SESSION['position'] = $row['position'];
-$_SESSION['user_id'] = $row['id'];
-session_regenerate_id(true);
-$reset_attempts = "UPDATE users SET login_attempts = 0, account_locked = NULL WHERE username=?";
-$reset_stmt = mysqli_prepare($con, $reset_attempts);
-mysqli_stmt_bind_param($reset_stmt, "s", $username);
-mysqli_stmt_execute($reset_stmt);
-ob_start();
-header("Location: home.php");
-ob_end_flush();
-exit;
-                        // Set session variables
                         $_SESSION['name'] = $row['name'];
                         $_SESSION['username'] = $row['username'];
                         $_SESSION['role'] = $row['role'];
                         $_SESSION['position'] = $row['position'];
                         $_SESSION['user_id'] = $row['id'];
 
-                        // Regenerate session ID to prevent session fixation    
                         session_regenerate_id(true);
 
-                        // Reset login attempts and unlock the account
                         $reset_attempts = "UPDATE users SET login_attempts = 0, account_locked = NULL WHERE username=?";
                         $reset_stmt = mysqli_prepare($con, $reset_attempts);
                         mysqli_stmt_bind_param($reset_stmt, "s", $username);
                         mysqli_stmt_execute($reset_stmt);
 
-                        // Redirect to the specified URL or default to home.php
                         if (isset($_GET['redirect'])) {
                             $rurl = urldecode($_GET['redirect']);
-                            // SECURITY: Validate redirect URL to prevent open redirect attacks
-                            // Open redirects can be exploited for phishing by redirecting users to malicious sites
-                            // Only allow relative URLs to .php pages within this application
-                            // Reject any URLs containing http:// or https:// (external sites)
                             if (preg_match('/^[a-zA-Z0-9_\-\.\/\?=&]+\.php/', $rurl) && !preg_match('/^(https?:)?\/\//', $rurl)) {
                                 header("Location: $rurl");
                                 exit;
                             }
                         }
-                        // Default redirect if validation fails or no redirect specified
                         header("Location: home.php");
                         exit;
                     } else {
-                        // Handle failed login attempts
                         $new_attempts = $row['login_attempts'] + 1;
                         if ($new_attempts >= 3) {
                             $lock_time = "UPDATE users SET account_locked = DATE_ADD(NOW(), INTERVAL 15 MINUTE), login_attempts = 3 WHERE username=?";
                             $lock_stmt = mysqli_prepare($con, $lock_time);
                             mysqli_stmt_bind_param($lock_stmt, "s", $username);
                             mysqli_stmt_execute($lock_stmt);
-                            $error_message = "Account is temporarily locked for 10 mins due to too many failed login attempts.";
+                            $error_message = "Cuenta bloqueada temporalmente por 15 minutos debido a demasiados intentos fallidos.";
                         } else {
                             $update_attempts = "UPDATE users SET login_attempts = ? WHERE username=?";
                             $update_stmt = mysqli_prepare($con, $update_attempts);
                             mysqli_stmt_bind_param($update_stmt, "is", $new_attempts, $username);
                             mysqli_stmt_execute($update_stmt);
-                            $error_message = "Invalid password. Please try again.";
+                            $error_message = "Contraseña inválida. Inténtalo de nuevo.";
                         }
                     }
                 }
             }
         }
     } else {
-        $error_message = "No user found with that username.";
+        $error_message = "No se encontró ningún usuario con ese correo electrónico.";
     }
     mysqli_stmt_close($statement);
 }
@@ -255,121 +205,132 @@ mysqli_close($con);
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($labName); ?></title>
+    <title>Iniciar Sesión | <?php echo htmlspecialchars($labName); ?></title>
 
-    <!-- Favicon and Icons -->
     <link rel="icon" href="icons/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
-    <link rel="icon" sizes="192x192" href="icons/android-chrome-192x192.png">
-    <link rel="icon" sizes="512x512" href="icons/android-chrome-512x512.png">
-    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 
-    <!-- Bootstrap CSS -->
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
 
-    <!-- Google Font: Poppins -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
-
-    <!-- Bootstrap and jQuery JS -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-    <!-- Custom CSS -->
     <style>
-        body,
-        html {
+        /* Clavar footer abajo de la pantalla de forma dinámica con Flexbox */
+        html, body {
+            height: 100%;
             margin: 0;
             padding: 0;
-            height: 100%;
-            width: 100%;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+
+        /* Estilo unificado de tarjetas */
+        .main-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+            background-color: #ffffff;
+        }
+
+        .section-card {
+            background-color: #ffffff;
+            border: 1px solid #e3e6f0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.03);
+        }
+
+        .section-title {
+            color: #4e73df;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #eaecf4;
+            padding-bottom: 8px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #343a40;
+            font-size: 0.9rem;
+        }
+
+        .btn-modern {
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #343a40;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .header img.header-logo {
+            width: 250px;
+            height: auto;
+        }
+
+        .header h2 {
+            margin-left: 15px;
+            margin-bottom: 0;
+            font-size: 2.5rem;
+            font-weight: 500;
+            white-space: nowrap;
         }
 
         .carousel img {
             height: 390px;
             object-fit: cover;
             width: 100%;
+            border-radius: 12px;
         }
 
-        .login-form {
-            padding: 10px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-box {
-            transition: transform .2s, box-shadow .2s;
-            border-radius: 10px;
-            padding: 30px;
-            background-color: white;
-            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            margin: 50px 0;
-        }
-
-        .feature-box h3 {
-            margin-top: 0;
-            color: #007bff;
-        }
-
-        .feature-box p {
-            margin-bottom: 0;
-        }
-
-        .forgot-password-link {
-            text-align: left;
-            margin-top: 50px;
-        }
-
-        .header {
-            display: flex;
-            flex-wrap: nowrap;
-            justify-content: center;
-            align-items: center;
-            background-color: #343a40;
-            color: white;
-            padding: 1rem 2rem;
-            text-align: center;
-            margin: 0;
-        }
-
-        .header .logo-container {
-            padding: 0;
-            margin: 0;
-        }
-
-        .header img.header-logo {
-            width: 300px;
-            height: auto;
-            display: block;
-            margin: 0;
-        }
-
-        .header h2 {
-            margin-left: 15px;
-            margin-bottom: 0;
-            margin-top: 12px;
-            font-size: 3.5rem;
-            white-space: nowrap;
-            font-family: 'Poppins', sans-serif;
-            font-weight: 500;
-        }
-
-        /* Responsive styling for smaller screens */
-        @media (max-width: 576px) {
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+            }
             .header h2 {
                 font-size: 1.8rem;
-                margin-bottom: 5px;
+                margin-left: 0;
+                margin-top: 10px;
             }
-
             .header img.header-logo {
                 width: 150px;
             }
@@ -378,120 +339,107 @@ mysqli_close($con);
 </head>
 
 <body>
+    <div class="page-content">
+        <?php if ($demo === "yes") include('demo/demo-banner.php'); ?>
 
-    <!-- Header Section -->
-    <?php if ($demo === "yes") include('demo/demo-banner.php'); ?>
-    <div class="header">
-        <div class="logo-container">
-            <a href="home.php">
+        <div class="header">
+            <a href="index.php">
                 <img src="images/logo1.jpg" alt="Logo" class="header-logo">
             </a>
+            <h2><?php echo htmlspecialchars($labName); ?></h2>
         </div>
-        <h2><?php echo htmlspecialchars($labName); ?></h2>
-    </div>
 
-    <div class="content">
-        <!-- Main Content -->
-        <div class="container mt-4">
+        <div class="container mt-5 mb-5">
             <div class="row">
-                <!-- Slideshow Column -->
-                <div class="col-md-6">
-                    <div id="labCarousel" class="carousel slide" data-ride="carousel">
+                <div class="col-md-6 mb-4 mb-md-0">
+                    <div id="labCarousel" class="carousel slide shadow-sm" data-ride="carousel" style="border-radius: 12px; overflow: hidden;">
                         <div class="carousel-inner">
-                            <div class="carousel-item active"> <img class="d-block w-100" src="images/DSC_0536.webp" alt="Image 1"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0537.webp" alt="Image 2"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0539.webp" alt="Image 3"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0540.webp" alt="Image 4"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0560.webp" alt="Image 7"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0562.webp" alt="Image 8"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0586.webp" alt="Image 11"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0593.webp" alt="Image 12"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0607.webp" alt="Image 13"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0623.webp" alt="Image 14"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0658.webp" alt="Image 15"> </div>
-                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0665.webp" alt="Image 16"> </div>
+                            <div class="carousel-item active"> <img class="d-block w-100" src="images/DSC_0536.webp" alt="Imagen 1"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0537.webp" alt="Imagen 2"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0539.webp" alt="Imagen 3"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0540.webp" alt="Imagen 4"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0560.webp" alt="Imagen 7"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0562.webp" alt="Imagen 8"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0586.webp" alt="Imagen 11"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0593.webp" alt="Imagen 12"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0607.webp" alt="Imagen 13"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0623.webp" alt="Imagen 14"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0658.webp" alt="Imagen 15"> </div>
+                            <div class="carousel-item"> <img class="d-block w-100" src="images/DSC_0665.webp" alt="Imagen 16"> </div>
                         </div>
                     </div>
                     <?php if ($demo === "yes") include('demo/demo-disclaimer.php'); ?>
                 </div>
 
-                <!-- Login Form Column -->
                 <div class="col-md-6">
-                    <div class="login-form">
-                        <h3>Login</h3>
-                        <?php if (isset($_SESSION['error_message'])) { ?>
-                            <div class="alert alert-danger">
-                                <?php 
-                                    echo $_SESSION['error_message']; 
-                                    unset($_SESSION['error_message']); // Clear the error message
-                                ?>
-                            </div>
-                        <?php } ?>
-                        <form method="POST" action="">
-                            <div class="form-group">
-                                <label for="username">Email Address</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="password">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
+                    <div class="card main-card">
+                        <div class="card-header bg-dark text-white p-3 d-flex align-items-center" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                            <h4 class="mb-0 fs-5"><i class="fas fa-sign-in-alt me-2"></i> Iniciar Sesión</h4>
+                        </div>
 
-                            <!-- Conditionally include Cloudflare Turnstile Widget -->
-                            <?php if (!empty($turnstileSiteKey)) { ?>
-                                <div class="cf-turnstile" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
-                                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                        <div class="card-body bg-light p-4">
+                            <?php if (isset($error_message)) { ?>
+                                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                                    <i class="fas fa-exclamation-circle me-2"></i> <?= $error_message; ?>
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
                             <?php } ?>
 
-                            <button type="submit" class="btn btn-primary" name="login">Login</button>
-                            <a href="register.php" class="btn btn-secondary">Register</a>
-                            <br><br>
-                            <a href="forgot_password.php" class="forgot-password-link">Forgot Password?</a>
-                        </form>
+                            <form method="POST" action="">
+                                <div class="section-card">
+                                    <div class="section-title">
+                                        <i class="fas fa-user-circle"></i> Credenciales
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="username" class="form-label">Correo Electrónico</label>
+                                        <input type="email" class="form-control" id="username" name="username" required placeholder="nombre@correo.com">
+                                    </div>
+                                    <div class="form-group mb-0">
+                                        <label for="password" class="form-label">Contraseña</label>
+                                        <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••">
+                                    </div>
+                                </div>
+
+                                <?php if (!empty($turnstileSiteKey)) { ?>
+                                    <div class="section-card d-flex justify-content-center text-center">
+                                        <div class="cf-turnstile" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
+                                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                                    </div>
+                                <?php } ?>
+
+                                <div class="d-flex flex-column gap-3 mt-4">
+                                    <button type="submit" class="btn btn-primary btn-modern w-100" name="login">
+                                        <i class="fas fa-sign-in-alt me-1"></i> Entrar
+                                    </button>
+                                    <div class="d-flex justify-content-between mt-3">
+                                        <a href="forgot_password.php" class="text-secondary small"><i class="fas fa-question-circle me-1"></i> ¿Olvidaste tu contraseña?</a>
+                                        <a href="register.php" class="text-primary small"><i class="fas fa-user-plus me-1"></i> Regístrate aquí</a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                     <?php if ($demo === "yes") include('demo/demo-credentials.php'); ?>
                 </div>
             </div>
 
-            <!-- New Row for Unique Features -->
-            <div class="row mt-4">
+            <div class="row mt-5">
                 <div class="col-md-12">
-                    <h2 class="text-center">Welcome to the <?php echo htmlspecialchars($labName); ?></h2>
-                    <p class="text-center italic">Elevate Your Research with IoT-Enhanced Colony Management</p>
+                    <div class="section-card">
+                        <h3 class="text-center text-primary font-weight-bold">¡Bienvenido a <?php echo htmlspecialchars($labName); ?>!</h3>
+                        <p class="text-center text-muted italic mb-0">Eleva tus investigaciones con nuestro sistema de gestión de colonias automatizado e integrado con IoT.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Include the footer -->
-    <?php include 'footer.php'; ?>
-    <script>
-        function adjustFooter() {
-            const footer = document.getElementById('footer');
-            const container = document.querySelector('.top-container');
-
-            if (footer && container) {
-                // Remove inline styles to calculate natural height
-                footer.style.position = 'relative';
-                footer.style.bottom = 'auto';
-
-                const containerHeight = container.offsetHeight;
-                const windowHeight = window.innerHeight;
-
-                // If content is shorter than viewport, fix the footer at the bottom
-                if (containerHeight < windowHeight) {
-                    footer.style.position = 'absolute';
-                    footer.style.bottom = '0';
-                } else {
-                    footer.style.position = 'relative';
-                    footer.style.bottom = 'auto';
-                }
-            }
-        }
-
-        window.addEventListener('load', adjustFooter);
-        window.addEventListener('resize', adjustFooter);
-    </script>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
 </body>
 
 </html>

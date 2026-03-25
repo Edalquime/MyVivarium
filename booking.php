@@ -21,42 +21,93 @@ require 'header.php';
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
     <style>
-        .booking-container {
-            max-width: 1200px; /* Un poco más ancho para que quepan las 7 pestañas */
-            margin: 20px auto;
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        /* 🔧 TRUCO FLEXBOX PARA PANTALLA COMPLETA Y FOOTER FIJO */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column; /* Apila Header, Contenido y Footer */
+            background-color: #f4f6f9;
         }
+
+        /* El contenedor principal se "estira" para empujar el footer al fondo */
+        .booking-fullscreen-container {
+            flex: 1 0 auto; 
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        /* Pestañas estilo Excel */
+        .nav-tabs {
+            border-bottom: 2px solid #dee2e6;
+        }
+
         .nav-tabs .nav-link {
             color: #495057;
             font-weight: bold;
             cursor: pointer;
-            font-size: 0.9rem; /* Un poco más pequeña la letra para que quepan bien */
+            font-size: 0.9rem;
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            margin-right: 3px;
         }
+
         .nav-tabs .nav-link.active {
             color: #0d6efd !important;
-            border-bottom-color: #fff;
+            background-color: #fff !important;
+            border-bottom-color: #fff !important;
         }
-        .calendar-box {
-            padding: 20px;
+
+        /* Caja de la Hoja activa que se estira al 100% del espacio disponible */
+        .tab-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
             border: 1px solid #dee2e6;
             border-top: none;
             border-bottom-left-radius: 8px;
             border-bottom-right-radius: 8px;
-            background: #fff;
+            padding: 15px;
         }
-        .fc-toolbar-title {
-            font-size: 1.1rem !important;
+
+        .tab-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Estira el contenedor del calendario */
+        .calendar-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px; /* Previene que colapse en pantallas muy pequeñas */
+        }
+
+        /* Estira FullCalendar internamente */
+        .fc {
+            flex: 1;
+            height: 100%;
+        }
+
+        /* Footer no se encoge y se queda abajo */
+        footer, #footer {
+            flex-shrink: 0;
+            width: 100%;
         }
     </style>
 </head>
 <body>
 
-<div class="booking-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📅 Reservas de Salas del Bioterio</h2>
+<div class="booking-fullscreen-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">📅 Reservas de Salas del Bioterio</h3>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bookingModal">
             + Nueva Reserva
         </button>
@@ -65,59 +116,23 @@ require 'header.php';
     <?php include('message.php'); ?>
 
     <ul class="nav nav-tabs" id="roomTabs" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active" id="sala1-tab" data-bs-toggle="tab" data-bs-target="#sala1" type="button" role="tab">Sala 1</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="sala4-tab" data-bs-toggle="tab" data-bs-target="#sala4" type="button" role="tab">Sala 4</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="sala5-tab" data-bs-toggle="tab" data-bs-target="#sala5" type="button" role="tab">Sala 5</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="cuarentena-tab" data-bs-toggle="tab" data-bs-target="#cuarentena" type="button" role="tab">Sala de Cuarentena</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="procedimientos-tab" data-bs-toggle="tab" data-bs-target="#procedimientos" type="button" role="tab">Sala de Procedimientos</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="conducta-tab" data-bs-toggle="tab" data-bs-target="#conducta" type="button" role="tab">Sala de Conducta</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="cfcrotarod-tab" data-bs-toggle="tab" data-bs-target="#cfcrotarod" type="button" role="tab">Sala CFC/RotaRod</button>
-        </li>
+        <li class="nav-item"><button class="nav-link active" id="sala1-tab" data-bs-toggle="tab" data-bs-target="#sala1" type="button" role="tab">Sala 1</button></li>
+        <li class="nav-item"><button class="nav-link" id="sala4-tab" data-bs-toggle="tab" data-bs-target="#sala4" type="button" role="tab">Sala 4</button></li>
+        <li class="nav-item"><button class="nav-link" id="sala5-tab" data-bs-toggle="tab" data-bs-target="#sala5" type="button" role="tab">Sala 5</button></li>
+        <li class="nav-item"><button class="nav-link" id="cuarentena-tab" data-bs-toggle="tab" data-bs-target="#cuarentena" type="button" role="tab">Cuarentena</button></li>
+        <li class="nav-item"><button class="nav-link" id="procedimientos-tab" data-bs-toggle="tab" data-bs-target="#procedimientos" type="button" role="tab">Procedimientos</button></li>
+        <li class="nav-item"><button class="nav-link" id="conducta-tab" data-bs-toggle="tab" data-bs-target="#conducta" type="button" role="tab">Conducta</button></li>
+        <li class="nav-item"><button class="nav-link" id="cfcrotarod-tab" data-bs-toggle="tab" data-bs-target="#cfcrotarod" type="button" role="tab">CFC/RotaRod</button></li>
     </ul>
 
     <div class="tab-content" id="roomTabsContent">
-        
-        <div class="tab-pane fade show active" id="sala1" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-sala1"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="sala4" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-sala4"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="sala5" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-sala5"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="cuarentena" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-cuarentena"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="procedimientos" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-procedimientos"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="conducta" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-conducta"></div> </div>
-        </div>
-
-        <div class="tab-pane fade" id="cfcrotarod" role="tabpanel">
-            <div class="calendar-box"> <div id="calendar-cfcrotarod"></div> </div>
-        </div>
-
+        <div class="tab-pane fade show active" id="sala1" role="tabpanel"><div class="calendar-box"><div id="calendar-sala1"></div></div></div>
+        <div class="tab-pane fade" id="sala4" role="tabpanel"><div class="calendar-box"><div id="calendar-sala4"></div></div></div>
+        <div class="tab-pane fade" id="sala5" role="tabpanel"><div class="calendar-box"><div id="calendar-sala5"></div></div></div>
+        <div class="tab-pane fade" id="cuarentena" role="tabpanel"><div class="calendar-box"><div id="calendar-cuarentena"></div></div></div>
+        <div class="tab-pane fade" id="procedimientos" role="tabpanel"><div class="calendar-box"><div id="calendar-procedimientos"></div></div></div>
+        <div class="tab-pane fade" id="conducta" role="tabpanel"><div class="calendar-box"><div id="calendar-conducta"></div></div></div>
+        <div class="tab-pane fade" id="cfcrotarod" role="tabpanel"><div class="calendar-box"><div id="calendar-cfcrotarod"></div></div></div>
     </div>
 </div>
 
@@ -144,7 +159,7 @@ require 'header.php';
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Título/Descripción de uso</label>
-                        <input type="text" class="form-control" name="title" placeholder="Ej: Comportamiento ratones Grupo A" required>
+                        <input type="text" class="form-control" name="title" placeholder="Ej: Protocolo de habituación 4" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Fecha y Hora de Inicio</label>
@@ -173,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById(elementId);
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'timeGridWeek',
+            height: 'auto', // 🚀 Truco de FullCalendar para ajustarse a su contenedor padre
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
@@ -180,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             locale: 'es',
             slotMinTime: '07:00:00',
-            slotMaxTime: '21:00:00', // Modifiqué el horario de fin un poco más tarde
+            slotMaxTime: '21:00:00',
             events: function(fetchInfo, successCallback, failureCallback) {
                 $.ajax({
                     url: 'booking_fetch.php',
@@ -212,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return calendar;
     }
 
-    // Inicializamos la pestaña activa por defecto (Sala 1)
+    // Inicializar primer calendario
     calendars['sala1'] = initCalendar('calendar-sala1', 'Sala 1');
 
     const tabMapping = {
@@ -234,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!calendars[map.key]) {
                 calendars[map.key] = initCalendar(map.calendarId, map.room);
             } else {
-                calendars[map.key].updateSize();
+                calendars[map.key].updateSize(); // Fuerza a que no se deforme al abrir la pestaña
             }
         });
     });

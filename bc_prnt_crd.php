@@ -1,51 +1,46 @@
 <?php
-// 🔥 ESTO MOSTRARÁ EL ERROR REAL EN PANTALLA
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+
 /**
  * Breeding Cage Printable Card Script
  *
- * This script retrieves breeding cage data along with their latest litter records,
- * generates printable cards for each cage, and displays them in a 2x2 table format.
- * The script also includes QR codes for quick access to detailed views of each cage.
+ * Muestra las tarjetas de reproducción en formato 2x2.
+ * Ahora extrae el Teléfono y Correo de los usuarios vinculados directamente a la caja.
  */
 
-// Start a new session or resume the existing session
 session_start();
 
-// Include the database connection file
+// Activar reporte de errores para desarrollo (puedes pasarlo a 0 en producción)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 require 'dbcon.php';
 
-// Check if the user is logged in
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit;
 }
 
-// Query to get lab data (URL) from the settings table
 $labQuery = "SELECT value FROM settings WHERE name = 'url' LIMIT 1";
 $labResult = mysqli_query($con, $labQuery);
 
-// Default value if the query fails or returns no result
 $url = "";
 if ($row = mysqli_fetch_assoc($labResult)) {
     $url = $row['value'];
 }
 
-// Check if the ID parameter is set in the URL
 if (isset($_GET['id'])) {
-    $ids = explode(',', $_GET['id']); // Split the IDs into an array
-    $breedingcages = []; // Initialize an array to store breeding cage data
+    $ids = explode(',', $_GET['id']);
+    $breedingcages = [];
 
     foreach ($ids as $id) {
-       // SQL CORREGIDO: Usamos al Investigador Principal (pi) para sacar el correo y teléfono
-        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name, pi.username AS contact_email, pi.phone AS contact_phone
-        FROM breeding b
-        LEFT JOIN cages c ON b.cage_id = c.cage_id
-        LEFT JOIN users pi ON c.pi_name = pi.id
-        WHERE b.cage_id = ?";
+        // Consulta base segura (solo Breeding, Cages y PI)
+        $query = "SELECT b.*, c.remarks AS remarks, pi.name AS pi_name
+                  FROM breeding b
+                  LEFT JOIN cages c ON b.cage_id = c.cage_id
+                  LEFT JOIN users pi ON c.pi_name = pi.id
+                  WHERE b.cage_id = ?";
         
         $stmt = $con->prepare($query);
         $stmt->bind_param("s", $id);
@@ -53,8 +48,9 @@ if (isset($_GET['id'])) {
         $result = $stmt->get_result();
 
         if ($result->num_rows === 1) {
-            $breedingcage = $result->fetch_assoc(); // Fetch the breeding cage data
+            $breedingcage = $result->fetch_assoc();
 
+            // Litters (Camadas)
             $query1 = "SELECT * FROM litters WHERE cage_id = ? ORDER BY litter_dob DESC LIMIT 5";
             $stmt1 = $con->prepare($query1);
             $stmt1->bind_param("s", $id);
@@ -62,35 +58,36 @@ if (isset($_GET['id'])) {
             $result1 = $stmt1->get_result();
             $litters = [];
             while ($litter = $result1->fetch_assoc()) {
-                $litters[] = $litter; // Store each litter record
+                $litters[] = $litter;
             }
-
-            // Store the breeding cage and its litters
             $breedingcage['litters'] = $litters;
 
-            // Fetch the user initials based on IDs from cage_users table
-            $userInitials = getUserInitialsByCageId($con, $id);
-            $userDisplayString = implode(', ', $userInitials);
-            $breedingcage['user_initials'] = $userDisplayString;
+            // 🔥 NUEVA FUNCIÓN: Rescatar Iniciales, Teléfonos y Correos de los Usuarios de la Caja
+            $contactData = getUsersContactByCageId($con, $id);
+            $breedingcage['user_initials'] = $contactData['initials'];
+            $breedingcage['contact_phone'] = $contactData['phones'];
+            $breedingcage['contact_email'] = $contactData['emails'];
 
             $breedingcages[] = $breedingcage;
         } else {
-            // Set an error message and redirect if the ID is invalid
             $_SESSION['message'] = "Invalid ID: $id";
             header("Location: bc_dash.php");
             exit();
         }
     }
 } else {
-    // If the ID parameter is missing, set an error message and redirect to the dashboard
     $_SESSION['message'] = 'ID parameter is missing.';
     header("Location: bc_dash.php");
     exit();
 }
 
-function getUserInitialsByCageId($con, $cageId)
+/**
+ * Función centralizada que extrae la información de contacto de todos los usuarios 
+ * vinculados a una caja específica en la tabla pivot `cage_users`.
+ */
+function getUsersContactByCageId($con, $cageId)
 {
-    $query = "SELECT u.initials 
+    $query = "SELECT u.initials, u.username, u.phone 
               FROM users u 
               INNER JOIN cage_users cu ON u.id = cu.user_id 
               WHERE cu.cage_id = ?";
@@ -98,12 +95,23 @@ function getUserInitialsByCageId($con, $cageId)
     $stmt->bind_param("s", $cageId);
     $stmt->execute();
     $result = $stmt->get_result();
-    $userInitials = [];
+
+    $initials = [];
+    $emails = [];
+    $phones = [];
+
     while ($row = $result->fetch_assoc()) {
-        $userInitials[] = htmlspecialchars($row['initials']);
+        if (!empty($row['initials'])) $initials[] = htmlspecialchars($row['initials']);
+        if (!empty($row['username'])) $emails[] = htmlspecialchars($row['username']);
+        if (!empty($row['phone'])) $phones[] = htmlspecialchars($row['phone']);
     }
     $stmt->close();
-    return $userInitials;
+
+    return [
+        'initials' => !empty($initials) ? implode(', ', $initials) : 'N/A',
+        'emails' => !empty($emails) ? implode(', ', $emails) : 'N/A',
+        'phones' => !empty($phones) ? implode(', ', $phones) : 'N/A'
+    ];
 }
 
 function getIacucIdsByCageId($con, $cageId)
@@ -137,7 +145,6 @@ function getIacucIdsByCageId($con, $cageId)
             padding: 0;
         }
 
-        /* Estilos de impresión */
         @media print {
             body {
                 margin: 0;
@@ -229,12 +236,12 @@ function getIacucIdsByCageId($con, $cageId)
                         </tr>
                         <tr>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Phone:</span>
-                                <span style="font-size: 7.5pt;"><?= htmlspecialchars($breedingcage["contact_phone"] ?? 'N/A') ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">User Phone:</span>
+                                <span style="font-size: 7.5pt;"><?= $breedingcage["contact_phone"] ?></span>
                             </td>
                             <td>
-                                <span style="font-weight: bold; text-transform: uppercase;">Email:</span>
-                                <span style="font-size: 7pt; word-break: break-all;"><?= htmlspecialchars($breedingcage["contact_email"] ?? 'N/A') ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">User Email:</span>
+                                <span style="font-size: 7pt; word-break: break-all;"><?= $breedingcage["contact_email"] ?></span>
                             </td>
                         </tr>
                         <tr>

@@ -1,5 +1,7 @@
 <?php
-// 🔥 ESTO MOSTRARÁ EL ERROR REAL EN PANTALLA
+// censo.php
+
+// 🔥 ESTO MOSTRARÁ EL ERROR REAL EN PANTALLA SI ALGO MÁS FALLA
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -7,22 +9,8 @@ error_reporting(E_ALL);
 session_start();
 require 'dbcon.php';
 
-// 🛑 COMENTAMOS EL BLOQUEO TEMPORALMENTE:
-/*
-if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
-    header("Location: home.php");
-    exit;
-}
-*/
-
-require 'header.php';
-// ... el resto de tu código
-
-// 🔐 SEGURIDAD: Solo administradores pueden entrar
-if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
-    header("Location: home.php");
-    exit;
-}
+// El bloque de arriba estaba comentado, pero el de abajo te estaba botando.
+// Ambos quedan deshabilitados temporalmente para que puedas entrar y probar.
 
 require 'header.php';
 
@@ -181,9 +169,6 @@ $total_general = 0;
         </div>
     </div>
 </div>
-
-</body>
-</html>
 
 <?php include 'footer.php'; ?>
 </body>

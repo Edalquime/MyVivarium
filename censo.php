@@ -1,17 +1,25 @@
 <?php
-// censo.php
 
-ini_set('display_errors', 0); // Cámbialo a 1 solo si quieres ver errores de código
+/**
+ * Censo General de Animales
+ * * Este script genera un recuento de animales totales sumando los contemplados en Holding y Breeding,
+ * discriminando por Investigador Principal (PI) y por Cepa.
+ * Solo los usuarios con rol de 'admin' pueden acceder.
+ */
+
+session_start();
+
+// Ocultar errores en producción (puedes cambiar a 1 si necesitas depurar algo puntual)
+ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-session_start();
 require 'dbcon.php';
 
-// 🔐 SEGURIDAD ESTANDARIZADA (Igual a manage_users.php)
+// 🔐 SEGURIDAD ESTANDARIZADA: Solo administradores (igual que manage_users.php)
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: home.php"); // O a index.php si prefieres desloguear
-    exit;
+    header("Location: index.php");
+    exit; // Detiene la ejecución para no mostrar nada a usuarios comunes
 }
 
 require 'header.php';
@@ -82,96 +90,117 @@ $total_general = 0;
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Censo de Animales | <?php echo htmlspecialchars($labName); ?></title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Censo de Animales | Bioterio</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
     <style>
-        .census-container { max-width: 1200px; margin: 30px auto; padding: 20px; }
-        .census-card {
-            background: #fff; border-radius: 12px; border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 30px;
+        .census-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
         }
-        .bg-dark-header { 
-            background-color: #343a40; color: white; border-top-left-radius: 12px; border-top-right-radius: 12px; padding: 15px; 
+
+        .census-card {
+            background: #fff;
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .bg-dark-header {
+            background-color: #343a40;
+            color: white;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            padding: 15px;
         }
     </style>
 </head>
+
 <body class="bg-light">
 
-<div class="census-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="font-weight-bold" style="color: #3c4043;"><i class="fas fa-poll me-2"></i> Censo General del Bioterio</h2>
-        <button onclick="window.print();" class="btn btn-secondary"><i class="fas fa-print me-1"></i> Imprimir Reporte</button>
-    </div>
+    <div class="container census-container content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="font-weight-bold" style="color: #3c4043;"><i class="fas fa-poll me-2"></i> Censo General de Animales</h2>
+            <button onclick="window.print();" class="btn btn-secondary"><i class="fas fa-print me-1"></i> Imprimir Reporte</button>
+        </div>
 
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="census-card">
-                <div class="bg-dark-header">
-                    <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i> Inventario por Investigador (PI)</h5>
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="census-card">
+                    <div class="bg-dark-header">
+                        <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i> Inventario por Investigador (PI)</h5>
+                    </div>
+                    <div class="p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Investigador Principal</th>
+                                        <th class="text-center">Holding</th>
+                                        <th class="text-center">Breeding (Adultos + Crías)</th>
+                                        <th class="text-center font-weight-bold">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php while ($row = mysqli_fetch_assoc($res_pi)):
+                                        $total_general += $row['gran_total']; ?>
+                                        <tr>
+                                            <td class="font-weight-bold"><?= htmlspecialchars($row['pi_name']) ?></td>
+                                            <td class="text-center"><?= $row['total_holding'] ?></td>
+                                            <td class="text-center"><?= $row['total_breeding'] ?></td>
+                                            <td class="text-center table-primary font-weight-bold"><?= $row['gran_total'] ?></td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                </tbody>
+                                <tfoot class="table-dark">
+                                    <tr>
+                                        <td>Gran Total de Animales Vivos</td>
+                                        <td colspan="3" class="text-end font-weight-bold fs-5" style="padding-right: 2rem;"><?= $total_general ?> ratones</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-0">
-                    <div class="table-responsive">
+            </div>
+
+            <div class="col-lg-4">
+                <div class="census-card">
+                    <div class="bg-dark-header">
+                        <h5 class="mb-0"><i class="fas fa-dna me-2"></i> Por Cepa / Línea</h5>
+                    </div>
+                    <div class="p-0">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Investigador Principal</th>
-                                    <th class="text-center">Holding</th>
-                                    <th class="text-center">Breeding (Adultos + Crías)</th>
-                                    <th class="text-center font-weight-bold">Total</th>
+                                    <th>Cepa</th>
+                                    <th class="text-center">Total</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while($row = mysqli_fetch_assoc($res_pi)): 
-                                    $total_general += $row['gran_total']; ?>
+                                <?php while ($row = mysqli_fetch_assoc($res_cepa)): ?>
                                     <tr>
-                                        <td class="font-weight-bold"><?= htmlspecialchars($row['pi_name']) ?></td>
-                                        <td class="text-center"><?= $row['total_holding'] ?></td>
-                                        <td class="text-center"><?= $row['total_breeding'] ?></td>
-                                        <td class="text-center table-primary font-weight-bold"><?= $row['gran_total'] ?></td>
+                                        <td><?= htmlspecialchars($row['strain_name']) ?></td>
+                                        <td class="text-center font-weight-bold"><?= $row['total_animales'] ?></td>
                                     </tr>
                                 <?php endwhile; ?>
                             </tbody>
-                            <tfoot class="table-dark">
-                                <tr>
-                                    <td>Gran Total de Animales Vivos</td>
-                                    <td colspan="3" class="text-end font-weight-bold fs-5" style="padding-right: 2rem;"><?= $total_general ?> ratones</td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="col-lg-4">
-            <div class="census-card">
-                <div class="bg-dark-header">
-                    <h5 class="mb-0"><i class="fas fa-dna me-2"></i> Por Cepa / Línea</h5>
-                </div>
-                <div class="p-0">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Cepa</th>
-                                <th class="text-center">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php while($row = mysqli_fetch_assoc($res_cepa)): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['strain_name']) ?></td>
-                                    <td class="text-center font-weight-bold"><?= $row['total_animales'] ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     </div>
-</div>
 
-<?php include 'footer.php'; ?>
+    <?php include 'footer.php'; ?>
 </body>
+
 </html>
+<?php mysqli_close($con); ?>

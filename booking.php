@@ -22,16 +22,32 @@ require 'header.php';
 
     <style>
         .booking-container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 20px auto;
             padding: 20px;
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        #calendar {
-            max-width: 100%;
-            margin-top: 20px;
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd !important;
+            border-bottom-color: #fff;
+        }
+        .calendar-box {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            background: #fff;
+        }
+        .fc-toolbar-title {
+            font-size: 1.2rem !important;
         }
     </style>
 </head>
@@ -47,7 +63,48 @@ require 'header.php';
 
     <?php include('message.php'); ?>
 
-    <div id="calendar"></div>
+    <ul class="nav nav-tabs" id="roomTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="cirugia-tab" data-bs-toggle="tab" data-bs-target="#cirugia" type="button" role="tab">Sala de Cirugía</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="comportamiento-tab" data-bs-toggle="tab" data-bs-target="#comportamiento" type="button" role="tab">Comportamiento</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="procedimientos-tab" data-bs-toggle="tab" data-bs-target="#procedimientos" type="button" role="tab">Procedimientos</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="cuarentena-tab" data-bs-toggle="tab" data-bs-target="#cuarentena" type="button" role="tab">Cuarentena</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="roomTabsContent">
+        
+        <div class="tab-pane fade show active" id="cirugia" role="tabpanel">
+            <div class="calendar-box">
+                <div id="calendar-cirugia"></div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="comportamiento" role="tabpanel">
+            <div class="calendar-box">
+                <div id="calendar-comportamiento"></div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="procedimientos" role="tabpanel">
+            <div class="calendar-box">
+                <div id="calendar-procedimientos"></div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="cuarentena" role="tabpanel">
+            <div class="calendar-box">
+                <div id="calendar-cuarentena"></div>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
@@ -68,18 +125,6 @@ require 'header.php';
                             <option value="Cuarentena">Cuarentena</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-    <label class="form-label font-weight-bold">🔍 Filtrar por Sala:</label>
-    <select class="form-select" id="roomFilter" style="max-width: 300px;">
-        <option value="">Todas las salas</option>
-        <option value="Sala de Cirugía">Sala de Cirugía</option>
-        <option value="Sala de Comportamiento">Sala de Comportamiento</option>
-        <option value="Procedimientos Generales">Procedimientos Generales</option>
-        <option value="Cuarentena">Cuarentena</option>
-    </select>
-</div>
-
-<div id="calendar"></div>
                     <div class="mb-3">
                         <label class="form-label">Título/Descripción de uso</label>
                         <input type="text" class="form-control" name="title" placeholder="Ej: Eutanasia proyecto 32" required>
@@ -104,63 +149,83 @@ require 'header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var calendarEl = document.getElementById('calendar');
-    var roomFilter = document.getElementById('roomFilter');
+    
+    // Objeto para guardar las instancias de los calendarios
+    const calendars = {};
 
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'timeGridWeek',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        locale: 'es',
-        slotMinTime: '07:00:00',
-        slotMaxTime: '20:00:00',
-        
-        // 🔥 Modificado: Enviamos el parámetro 'room' al archivo PHP
-        events: function(fetchInfo, successCallback, failureCallback) {
-            $.ajax({
-                url: 'booking_fetch.php',
-                type: 'GET',
-                data: {
-                    room: roomFilter.value // Mandamos la sala seleccionada
-                },
-                success: function(data) {
-                    successCallback(JSON.parse(data));
-                },
-                error: function() {
-                    failureCallback();
-                }
-            });
-        },
-        selectable: true,
-
-        eventClick: function(info) {
-            if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {
+    // Función genérica para renderizar un calendario individual
+    function initCalendar(elementId, roomName) {
+        var calendarEl = document.getElementById(elementId);
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            locale: 'es',
+            slotMinTime: '07:00:00',
+            slotMaxTime: '20:00:00',
+            events: function(fetchInfo, successCallback, failureCallback) {
                 $.ajax({
-                    url: 'booking_action.php',
-                    type: 'POST',
-                    data: {
-                        delete_booking: true,
-                        booking_id: info.event.id
-                    },
-                    success: function(response) {
-                        alert(response);
-                        calendar.refetchEvents(); // Recarga
+                    url: 'booking_fetch.php',
+                    type: 'GET',
+                    data: { room: roomName }, // Pide solo la sala que corresponde a esta pestaña
+                    success: function(data) {
+                        successCallback(JSON.parse(data));
                     }
                 });
+            },
+            eventClick: function(info) {
+                if (confirm("¿Deseas CANCELAR la reserva: " + info.event.title + "?")) {
+                    $.ajax({
+                        url: 'booking_action.php',
+                        type: 'POST',
+                        data: {
+                            delete_booking: true,
+                            booking_id: info.event.id
+                        },
+                        success: function(response) {
+                            alert(response);
+                            calendar.refetchEvents();
+                        }
+                    });
+                }
             }
-        }
+        });
+        calendar.render();
+        return calendar;
+    }
+
+    // Inicializamos el primero (Cirugía), que es la pestaña por defecto activa
+    calendars['cirugia'] = initCalendar('calendar-cirugia', 'Sala de Cirugía');
+
+    // Mapeo de IDs de pestañas a IDs de elementos de calendario y nombres de salas
+    const tabMapping = {
+        'cirugia-tab': { calendarId: 'calendar-cirugia', room: 'Sala de Cirugía', key: 'cirugia' },
+        'comportamiento-tab': { calendarId: 'calendar-comportamiento', room: 'Sala de Comportamiento', key: 'comportamiento' },
+        'procedimientos-tab': { calendarId: 'calendar-procedimientos', room: 'Procedimientos Generales', key: 'procedimientos' },
+        'cuarentena-tab': { calendarId: 'calendar-cuarentena', room: 'Cuarentena', key: 'cuarentena' }
+    };
+
+    // Escuchamos el cambio de pestaña de Bootstrap
+    var triggerTabList = [].slice.call(document.querySelectorAll('#roomTabs button'));
+    triggerTabList.forEach(function (triggerEl) {
+        triggerEl.addEventListener('shown.bs.tab', function (event) {
+            const activeTabId = event.target.id;
+            const map = tabMapping[activeTabId];
+
+            // Si el calendario de esa pestaña no ha sido creado aún, lo creamos
+            if (!calendars[map.key]) {
+                calendars[map.key] = initCalendar(map.calendarId, map.room);
+            } else {
+                // Si ya fue creado, le decimos que se "actualice el tamaño" (FullCalendar lo necesita al pasar de oculto a visible)
+                calendars[map.key].updateSize();
+            }
+        });
     });
 
-    calendar.render();
-
-    // 🔥 Escuchar cuando el usuario cambia de sala en el desplegable
-    roomFilter.addEventListener('change', function() {
-        calendar.refetchEvents(); // Esto obliga a llamar de nuevo a booking_fetch.php con el nuevo filtro
-    });
-
+    // Validar horarios futuros en el formulario
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('start_event').min = now.toISOString().slice(0,16);

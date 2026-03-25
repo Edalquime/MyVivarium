@@ -1,16 +1,18 @@
 <?php
 // censo.php
 
-// 🔥 ESTO MOSTRARÁ EL ERROR REAL EN PANTALLA SI ALGO MÁS FALLA
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+ini_set('display_errors', 0); // Cámbialo a 1 solo si quieres ver errores de código
+ini_set('display_startup_errors', 0);
+error_reporting(E_ALL & ~E_DEPRECATED);
 
 session_start();
 require 'dbcon.php';
 
-// El bloque de arriba estaba comentado, pero el de abajo te estaba botando.
-// Ambos quedan deshabilitados temporalmente para que puedas entrar y probar.
+// 🔐 SEGURIDAD ESTANDARIZADA (Igual a manage_users.php)
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    header("Location: home.php"); // O a index.php si prefieres desloguear
+    exit;
+}
 
 require 'header.php';
 

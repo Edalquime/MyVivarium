@@ -2,12 +2,12 @@
 
 /**
  * Breeding Cage Printable Card Script
- * Formato 2x2 en español blindado para respetar el tamaño exacto (Letter Landscape).
+ * Formato 2x2 en español blindado con grosores de línea unificados al milímetro.
  */
 
 session_start();
 
-ini_set('display_errors', 0); // Desactivar en producción para evitar textos raros que dañen el PDF
+ini_set('display_errors', 0); 
 
 require 'dbcon.php';
 
@@ -118,13 +118,11 @@ function getIacucIdsByCageId($con, $cageId) {
     <meta charset="UTF-8">
     <title>Impresión de Tarjetas Exactas 2x2</title>
     <style>
-        /* 📄 DEFINICIÓN ABSOLUTA DEL PAPEL CARTA HORIZONTAL */
         @page {
             size: letter landscape;
             margin: 0;
         }
 
-        /* Reset global para evitar que los bordes sumen milímetros no deseados */
         * {
             box-sizing: border-box !important;
         }
@@ -132,13 +130,12 @@ function getIacucIdsByCageId($con, $cageId) {
         body, html {
             margin: 0;
             padding: 0;
-            width: 11in; /* Ancho carta landscape */
-            height: 8.5in; /* Alto carta landscape */
+            width: 11in;
+            height: 8.5in;
             font-family: Arial, Helvetica, sans-serif;
             background-color: #fff;
         }
 
-        /* Contenedor Flexbox para repartir el espacio exactamente 2x2 */
         .page-container {
             display: flex;
             flex-wrap: wrap;
@@ -147,11 +144,10 @@ function getIacucIdsByCageId($con, $cageId) {
             align-content: flex-start;
         }
 
-        /* Cada tarjeta ocupa la mitad del ancho (5.5in) y la mitad del alto (4.25in) */
         .card-slot {
             width: 5.5in;
             height: 4.25in;
-            border: 1px dashed #D3D3D3; /* Guía de corte sutil */
+            border: 1px dashed #D3D3D3; 
             display: flex;
             align-items: center;
             justify-content: center;
@@ -159,17 +155,17 @@ function getIacucIdsByCageId($con, $cageId) {
             padding: 0;
         }
 
-        /* La tabla física real de la tarjeta mide exactamente 5x3 pulgadas */
+        /* 📏 UNIFICACIÓN DE BORDES (Todo a 1px solid black) */
         .actual-card {
             width: 5in;
             height: 3in;
-            border-collapse: collapse;
+            border-collapse: collapse; /* Colapsa bordes dobles */
             table-layout: fixed;
-            border: 2px solid black;
+            border: 1px solid black; /* Borde exterior idéntico al interior */
         }
 
         .actual-card td {
-            border: 1px solid black;
+            border: 1px solid black; /* Bordes de celdas a 1px */
             padding: 3px;
             vertical-align: top;
             font-size: 8pt;
@@ -193,20 +189,21 @@ function getIacucIdsByCageId($con, $cageId) {
             font-size: 8pt;
         }
 
-        /* Subtabla para los Litters/Camadas */
         .litters-table {
             width: 100%;
-            height: 1.5in; /* Ocupa exactamente la mitad de abajo de la tarjeta de 3in */
-            border-collapse: collapse;
+            height: 1.5in;
+            border-collapse: collapse; /* Colapsa bordes dobles de la tabla de partos */
             table-layout: fixed;
+            border: 1px solid black; /* Cierra el marco exterior de la tabla de abajo */
+            border-top: none; /* Evita encimar la línea con la tabla superior */
         }
 
         .litters-table td {
-            border: 1px solid black;
+            border: 1px solid black; /* Bordes internos a 1px */
             text-align: center;
             vertical-align: middle;
             font-size: 7.5pt;
-            height: calc(1.5in / 6); /* Altura perfecta distribuida entre cabecera y 5 filas */
+            height: calc(1.5in / 6);
             padding: 2px;
         }
 
@@ -216,7 +213,7 @@ function getIacucIdsByCageId($con, $cageId) {
                 print-color-adjust: exact;
             }
             .card-slot {
-                border: 1px dashed #ccc; /* Guía de corte visible al imprimir */
+                border: 1px dashed #ccc; 
             }
         }
     </style>
@@ -252,7 +249,7 @@ function getIacucIdsByCageId($con, $cageId) {
                                 ?>
                             </span>
                         </td>
-                        <td rowspan="4" style="width: 20%; text-align:center; vertical-align:middle; border-left: 2px solid black;">
+                        <td rowspan="4" style="width: 20%; text-align:center; vertical-align:middle;">
                             <img src="https://api.qrserver.com/v1/create-qr-code/?size=65x65&data=https://<?= $url ?>/bc_view.php?id=<?= $breedingcage["cage_id"] ?>&choe=UTF-8" alt="QR">
                         </td>
                     </tr>

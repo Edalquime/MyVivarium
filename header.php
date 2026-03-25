@@ -1,4 +1,9 @@
 <?php
+// Aseguramos la sesión para que lea el rol del Admin correctamente
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Security Headers
 header("X-Frame-Options: SAMEORIGIN");
 header("X-Content-Type-Options: nosniff");
@@ -56,17 +61,16 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
             padding: 0.8rem 2rem;
         }
 
-        /* Contenedor izquierdo que agrupa los logos y el nombre */
         .brand-container {
             display: flex;
             align-items: center;
-            gap: 20px; /* Separación entre el bloque de logos y el texto del lab */
+            gap: 20px;
         }
 
         .logo-group {
             display: flex;
             align-items: center;
-            gap: 10px; /* Separación entre cada logo individual */
+            gap: 10px;
         }
 
         .logo-group img {
@@ -179,7 +183,7 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
                                 <li><a class="dropdown-item" href="manage_users.php">Usuarios</a></li>
                                 <li><a class="dropdown-item" href="manage_iacuc.php">IACUC</a></li>
                                 <li><a class="dropdown-item" href="manage_strain.php">Cepas</a></li>
-                                <li><a class="dropdown-item" href="censo.php">Censo</a></li>
+                                <li><a class="dropdown-item" href="censo.php"><i class="fas fa-chart-pie me-1"></i> Censo</a></li>
                                 <li><a class="dropdown-item" href="manage_lab.php">Ajustes del Lab</a></li>
                                 <li><a class="dropdown-item" href="export_data.php">Exportar CSV</a></li>
                             <?php endif; ?>
@@ -195,6 +199,3 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-
-</html>

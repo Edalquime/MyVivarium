@@ -49,9 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $female_n = $_POST['female_n'] ?? 1; 
 
     
-    $male_id = $_POST['male_id'] ?? [];
+    $male_id_array = $_POST['male_id'] ?? [];
     $male_dob_array = $_POST['male_dob'] ?? [];
-    $female_id = $_POST['female_id'] ?? [];
+    $female_id_array = $_POST['female_id'] ?? [];
     $female_dob_array = $_POST['female_dob'] ?? [];
     $male_dob = implode(', ', $male_dob_array);
     $male_id = implode(', ', $male_dob_array);
@@ -219,6 +219,8 @@ require 'header.php';
             const femaleNumInput = document.getElementById('female_n');
             const maleDatesContainer = document.getElementById('male_dates_container');
             const femaleDatesContainer = document.getElementById('female_dates_container');
+            const maleIdContainer = document.getElementById('male_id_container');
+            const femaleIdContainer = document.getElementById ('female_id_container');
     
 
             function actualizarFechasMacho() {
@@ -259,6 +261,43 @@ require 'header.php';
             actualizarFechasMacho();
             actualizarFechasHembra();
 
+                        function actualizarIdMacho() {
+                const cantidad = parseInt(maleIdInput.value) || 0;
+                maleDatesContainer.innerHTML = ''; 
+
+                for (let i = 1; i <= cantidad; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'mb-2 p-2 border rounded bg-white';
+                    div.innerHTML = `
+                        <label class="form-label">Male #${i} DOB <span class="required-asterisk">*</span></label>
+                        <input type="text" class="form-control" name="male_id[]">
+                    `;
+                    maleIdContainer.appendChild(div);
+                }
+                setMaxDate();
+            }
+
+            function actualizarIdHembra() {
+                const cantidad = parseInt(femaleNumInput.value) || 0;
+                femaleDatesContainer.innerHTML = ''; 
+
+                for (let i = 1; i <= cantidad; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'mb-2 p-2 border rounded bg-white';
+                    div.innerHTML = `
+                        <label class="form-label">Female #${i} DOB <span class="required-asterisk">*</span></label>
+                        <input type="text" class="form-control" name="female_id[]" >
+                    `;
+                    femaleIdContainer.appendChild(div);
+                }
+                setMaxDate();
+            }
+
+            maleIdInput.addEventListener('input', actualizarIdMacho);
+            femaleIdInput.addEventListener('input', actualizarIdHembra);
+
+            actualizarIdMacho();
+            actualizarIdHembra();
 
             // MODIFICACIÓN 2: Eliminado 'DOM' del constructor de JavaScript
             function addLitter() {
@@ -477,11 +516,8 @@ require 'header.php';
                 <label for="male_n" class="form-label">Number of Breeding Males <span class="required-asterisk">*</span></label>
                 <input type="number" class="form-control" id="male_n" name="male_n" required min="1" step="1" value="1">
             </div>
-
-            <div class="mb-3">
-                <label for="male_id" class="form-label">Male ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="male_id" name="male_id" required min="1" >
-            </div>
+            
+            <div id="male_id_container" class="mb-3 p-3 bg-white border rounded"></div>
 
             <div id="male_dates_container" class="mb-3 p-3 bg-white border rounded"></div>
 
@@ -490,13 +526,11 @@ require 'header.php';
                 <label for="female_n" class="form-label">Number of Breeding Females <span class="required-asterisk">*</span></label>
                 <input type="number" class="form-control" id="female_n" name="female_n" required min="1" step="1" value="1">
             </div>
-
-            <div class="mb-3">
-                <label for="female_id" class="form-label">Female ID <span class="required-asterisk">*</span></label>
-                <input type="text" class="form-control" id="female_id" name="female_id" required min="1">
-            </div>
-
+            
+            <div id="female_id_container" class="mb-3 p-3 bg-white border rounded"></div>
+            
             <div id="female_dates_container" class="mb-3 p-3 bg-white border rounded"></div>
+            
 
 
             <div class="mb-3">

@@ -48,12 +48,31 @@ require 'header.php';
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <style>
+        /* --- CAMBIO CLAVE: Configurar body como Flexbox para empujar el footer hacia abajo --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             background-color: #f4f6f9;
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* Dimensiones y estilo estandarizado a las otras vistas del sistema */
+        /* El contenedor principal crece para ocupar el espacio restante */
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        /* El footer siempre se mantiene al final y no se encoge */
+        .page-footer {
+            flex-shrink: 0;
+        }
+        /* ----------------------------------------------------------------------------------- */
+
         .main-card {
             border: none;
             border-radius: 12px;
@@ -92,7 +111,6 @@ require 'header.php';
             color: #e74a3b;
         }
 
-        /* Select2 adaptado a los estilos globales */
         .select2-container--default .select2-selection--multiple {
             border: 1px solid #d1d3e2 !important;
             border-radius: 8px !important;
@@ -111,7 +129,6 @@ require 'header.php';
     </style>
 
     <script>
-        // Validar la selección de IDs de jaulas
         function validateSelection() {
             var selectedIds = document.getElementById("cageIds").selectedOptions;
             if (selectedIds.length > 4) {
@@ -125,18 +142,16 @@ require 'header.php';
             return true;
         }
 
-        // Manejar el envío del formulario para abrir una nueva pestaña con los IDs de jaula seleccionados
         function handleSubmit(event, url) {
             event.preventDefault();
             if (validateSelection()) {
                 var selectedIds = document.getElementById("cageIds").selectedOptions;
                 var ids = Array.from(selectedIds).map(option => option.value);
                 var queryString = url + "?id=" + ids.join(",");
-                window.open(queryString, '_blank'); // Abrir en una nueva pestaña
+                window.open(queryString, '_blank');
             }
         }
 
-        // Inicializar Select2 para la lista desplegable de IDs de jaulas
         $(document).ready(function() {
             $('#cageIds').select2({
                 placeholder: "Selecciona una o varias jaulas...",
@@ -145,7 +160,6 @@ require 'header.php';
             });
         });
 
-        // Función para regresar a la página anterior
         function goBack() {
             window.history.back();
         }
@@ -153,48 +167,52 @@ require 'header.php';
 </head>
 
 <body>
-    <div class="container mt-5 mb-5" style="max-width: 800px;">
-        
-        <div class="card main-card">
-            <div class="card-header bg-dark text-white p-3 d-flex align-items-center justify-content-between" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
-                <h4 class="mb-0 fs-5"><i class="fas fa-print me-2"></i> Imprimir Tarjetas de Jaulas de Cruce</h4>
-                <button type="button" class="btn btn-sm btn-light" onclick="goBack()"><i class="fas fa-arrow-left me-1"></i> Volver</button>
-            </div>
+    <div class="page-content">
+        <div class="container mt-5 mb-5" style="max-width: 800px;">
+            
+            <div class="card main-card">
+                <div class="card-header bg-dark text-white p-3 d-flex align-items-center justify-content-between" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                    <h4 class="mb-0 fs-5"><i class="fas fa-print me-2"></i> Imprimir Tarjetas de Jaulas de Cruce</h4>
+                    <button type="button" class="btn btn-sm btn-light" onclick="goBack()"><i class="fas fa-arrow-left me-1"></i> Volver</button>
+                </div>
 
-            <div class="card-body bg-light p-4">
-                <form>
-                    <div class="section-card">
-                        <div class="section-title">
-                            <i class="fas fa-th-list"></i> Selección de Jaulas
+                <div class="card-body bg-light p-4">
+                    <form>
+                        <div class="section-card">
+                            <div class="section-title">
+                                <i class="fas fa-th-list"></i> Selección de Jaulas
+                            </div>
+                            
+                            <div class="form-group mb-0">
+                                <label for="cageIds" class="form-label">IDs de Jaulas (Selecciona hasta 4): <span class="required-asterisk">*</span></label>
+                                <select id="cageIds" name="id[]" class="form-control" multiple>
+                                    <?php foreach ($cageIds as $cageId) : ?>
+                                        <option value="<?= htmlspecialchars($cageId) ?>"><?= htmlspecialchars($cageId) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <small class="form-text text-muted mt-2">
+                                    <i class="fas fa-info-circle me-1"></i> Puedes elegir múltiples jaulas. Para un diseño óptimo de impresión se limitan a 4 por lote.
+                                </small>
+                            </div>
                         </div>
-                        
-                        <div class="form-group mb-0">
-                            <label for="cageIds" class="form-label">IDs de Jaulas (Selecciona hasta 4): <span class="required-asterisk">*</span></label>
-                            <select id="cageIds" name="id[]" class="form-control" multiple>
-                                <?php foreach ($cageIds as $cageId) : ?>
-                                    <option value="<?= htmlspecialchars($cageId) ?>"><?= htmlspecialchars($cageId) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="form-text text-muted mt-2">
-                                <i class="fas fa-info-circle me-1"></i> Puedes elegir múltiples jaulas. Para un diseño óptimo de impresión se limitan a 4 por lote.
-                            </small>
-                        </div>
-                    </div>
 
-                    <div class="d-flex justify-content-end gap-3 mt-4">
-                        <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
-                            <i class="fas fa-times me-1"></i> Cancelar
-                        </button>
-                        <button type="submit" class="btn btn-primary btn-modern" onclick="handleSubmit(event, 'bc_prnt_crd.php')">
-                            <i class="fas fa-print me-1"></i> Imprimir Tarjetas
-                        </button>
-                    </div>
-                </form>
+                        <div class="d-flex justify-content-end gap-3 mt-4">
+                            <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-modern" onclick="handleSubmit(event, 'bc_prnt_crd.php')">
+                                <i class="fas fa-print me-1"></i> Imprimir Tarjetas
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
-    <?php include 'footer.php'; ?>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
 </body>
 
 </html>

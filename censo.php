@@ -9,14 +9,14 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 require 'header.php';
 
-// 🔥 OBLIGAMOS A PHP A MOSTRAR EL ERROR DE SQL EN PANTALLA
+// Activamos errores por si acaso
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-echo '<div class="container mt-4"><h3>🔍 Diagnóstico del Censo</h3>';
+echo '<div class="container mt-4"><h3>🔍 Diagnóstico del Censo Corregido</h3>';
 
-// --- INTENTO DE CONSULTA 1 ---
+// --- CONSULTA 1: INVESTIGADORES ---
 $query_pi = "
     SELECT u.name AS pi_name, 
            COUNT(m.mouse_id) AS total_mice
@@ -35,11 +35,11 @@ if (!$res_pi) {
 }
 
 
-// --- INTENTO DE CONSULTA 2 ---
+// --- CONSULTA 2: CEPAS (Corregido m.strain) ---
 $query_cepa = "
     SELECT s.str_name AS strain_name, COUNT(m.mouse_id) AS total
     FROM mice m
-    INNER JOIN strains s ON m.strain_id = s.str_id
+    INNER JOIN strains s ON m.strain = s.str_id
     GROUP BY s.str_name
 ";
 

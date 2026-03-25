@@ -48,31 +48,21 @@ if (isset($_GET['search'])) {
 if (!empty($searchQuery)) {
     $searchPattern = '%' . $searchQuery . '%';
     
-    // Query with search filter for total count
-    $totalQuery = "SELECT COUNT(DISTINCT b.cage_id) as total 
-                   FROM breeding b
-                   LEFT JOIN cages c ON b.cage_id = c.cage_id
-                   WHERE b.cage_id LIKE ? OR c.remarks LIKE ?";
+    $totalQuery = "SELECT COUNT(DISTINCT cage_id) as total FROM breeding WHERE cage_id LIKE ?";
     $stmtTotal = $con->prepare($totalQuery);
-    $stmtTotal->bind_param("ss", $searchPattern, $searchPattern);
+    $stmtTotal->bind_param("s", $searchPattern);
     $stmtTotal->execute();
     $totalResult = $stmtTotal->get_result();
     $totalRecords = $totalResult->fetch_assoc()['total'];
     $totalPages = ceil($totalRecords / $limit);
     $stmtTotal->close();
 
-    // Query with pagination
-    $query = "SELECT DISTINCT b.cage_id 
-              FROM breeding b
-              LEFT JOIN cages c ON b.cage_id = c.cage_id
-              WHERE b.cage_id LIKE ? OR c.remarks LIKE ? 
-              LIMIT ? OFFSET ?";
+    $query = "SELECT DISTINCT cage_id FROM breeding WHERE cage_id LIKE ? LIMIT ? OFFSET ?";
     $stmt = $con->prepare($query);
-    $stmt->bind_param("ssii", $searchPattern, $searchPattern, $limit, $offset);
+    $stmt->bind_param("sii", $searchPattern, $limit, $offset);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
-    // Query without search filter
     $totalQuery = "SELECT COUNT(DISTINCT cage_id) as total FROM breeding";
     $totalResult = mysqli_query($con, $totalQuery);
     $totalRecords = mysqli_fetch_assoc($totalResult)['total'];
@@ -90,9 +80,9 @@ $tableRows = '';
 
 if ($result->num_rows > 0) {
     while ($row = mysqli_fetch_assoc($result)) {
-        $cageID = $row['cage_id']; // Get the cage ID
+        $cageID = $row['cage_id']; 
         
-        // Obtener datos del usuario asignado (desde cage_users o de la propia jaula para verificar permisos)
+        // Obtenemos los usuarios asignados para validar los permisos de edición/borrado
         $userCheckQuery = "SELECT user_id FROM cage_users WHERE cage_id = ?";
         $stmtUserCheck = $con->prepare($userCheckQuery);
         $stmtUserCheck->bind_param("s", $cageID);
@@ -106,35 +96,29 @@ if ($result->num_rows > 0) {
         $stmtUserCheck->close();
 
         $tableRows .= '<tr>';
-        // Columna de Cage ID: Deja que tome el resto del 100% disponible
         $tableRows .= '<td>' . htmlspecialchars($cageID) . '</td>';
         
-        // Columna de Acciones: Sincronizada con BC_DASH y ocupando el mínimo espacio posible (1%)
+        // --- COLUMNA DE ACCIONES (4 botones originales con espaciado correcto) ---
         $tableRows .= '<td style="width: 1%; white-space: nowrap; text-align: center;">';
-        
-        // Contenedor Flex para centrar todo y separar los iconos por 5px
         $tableRows .= '<div class="d-flex justify-content-center align-items-center" style="gap: 5px;">';
 
-        // 1. Ver Jaula
-        $tableRows .= '<a href="bc_view.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-primary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Ver Jaula"><i class="fas fa-eye"></i></a>';
+        // 1. Ver Jaula (View)
+        $tableRows .= '<a href="bc_view.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-primary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="View Cage"><i class="fas fa-eye"></i></a>';
         
-        // 2. Tareas / Mantenimiento
-        $tableRows .= '<a href="manage_tasks.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-info btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Gestionar Tareas"><i class="fas fa-tasks"></i></a>';
-        
-        // 3. Imprimir Tarjeta de Jaula (Si aplica)
-        $tableRows .= '<a href="bc_crd_prnt.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-success btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Imprimir Tarjeta" target="_blank"><i class="fas fa-print"></i></a>';
+        // 2. Gestionar Tareas (Manage Tasks)
+        $tableRows .= '<a href="manage_tasks.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Manage Tasks"><i class="fas fa-tasks"></i></a>';
 
         // Validar Roles para edición y borrado
         if ($userRole === 'admin' || in_array($currentUserId, $assignedUsers)) {
-            // Editar Jaula
-            $tableRows .= '<a href="bc_edit.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-warning btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Editar Jaula"><i class="fas fa-edit"></i></a>';
+            // 3. Editar Jaula (Edit)
+            $tableRows .= '<a href="bc_edit.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Edit Cage"><i class="fas fa-edit"></i></a>';
             
-            // Borrar Jaula
-            $tableRows .= '<a href="#" onclick="confirmDeletion(\'' . htmlspecialchars($cageID) . '\')" class="btn btn-danger btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Eliminar Jaula"><i class="fas fa-trash"></i></a>';
+            // 4. Borrar Jaula (Delete)
+            $tableRows .= '<a href="#" onclick="confirmDeletion(\'' . htmlspecialchars($cageID) . '\')" class="btn btn-danger btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Delete Cage"><i class="fas fa-trash"></i></a>';
         }
 
-        $tableRows .= '</div>'; // Cierre d-flex
-        $tableRows .= '</td>'; // Cierre td
+        $tableRows .= '</div>';
+        $tableRows .= '</td>';
         $tableRows .= '</tr>';
     }
 } else {
@@ -149,19 +133,15 @@ if ($stmt) {
 $paginationLinks = '';
 if ($totalPages > 1) {
     for ($i = 1; $i <= $totalPages; $i++) {
-        $activeClass = ($i == $page) ? 'active' : ''; // Highlight the active page
+        $activeClass = ($i == $page) ? 'active' : ''; 
         $paginationLinks .= '<li class="page-item ' . $activeClass . '"><a class="page-link" href="javascript:void(0);" onclick="fetchData(' . $i . ', \'' . htmlspecialchars($searchQuery, ENT_QUOTES) . '\')">' . $i . '</a></li>';
     }
 }
 
-// Clear the output buffer to avoid sending unwanted output before JSON
 ob_end_clean();
 
-// Return the table rows and pagination links as a JSON response
 header('Content-Type: application/json');
 echo json_encode([
     'tableRows' => $tableRows,
     'paginationLinks' => $paginationLinks
 ]);
-
-?>

@@ -179,6 +179,7 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
                                 <li><a class="dropdown-item" href="manage_users.php">Usuarios</a></li>
                                 <li><a class="dropdown-item" href="manage_iacuc.php">IACUC</a></li>
                                 <li><a class="dropdown-item" href="manage_strain.php">Cepas</a></li>
+                                <li><a class="dropdown-item" href="manage_censo.php">Censo</a></li>
                                 <li><a class="dropdown-item" href="manage_lab.php">Ajustes del Lab</a></li>
                                 <li><a class="dropdown-item" href="export_data.php">Exportar CSV</a></li>
                             <?php endif; ?>

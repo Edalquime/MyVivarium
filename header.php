@@ -1,4 +1,4 @@
- <?php
+<?php
 
 /**
  * Header and Navigation Menu
@@ -91,18 +91,18 @@ if (isset($settings['r2_pres'])) {
     <style>
     .header {
         display: flex;
-        flex-wrap: nowrap; /* Evita que los logos salten hacia abajo */
-        justify-content: space-between; /* Texto a la izquierda, logos a la derecha */
+        flex-wrap: nowrap;
+        justify-content: space-between;
         align-items: center;
         background-color: #343a40;
         color: white;
-        padding: 1rem 2rem; /* Más espaciado a los lados */
+        padding: 1rem 2rem;
         margin: 0;
     }
 
     .header h2 {
         margin: 0;
-        font-size: 2.5rem; /* Un tamaño más maniobrable */
+        font-size: 2.5rem;
         white-space: nowrap;
         font-family: 'Poppins', sans-serif;
         font-weight: 500;
@@ -110,21 +110,19 @@ if (isset($settings['r2_pres'])) {
 
     .header .logo-container {
         display: flex;
-        gap: 15px; /* Espacio entre los tres logos */
+        gap: 15px;
         align-items: center;
     }
 
-    /* Tamaño unificado para los tres logos */
     .header img.header-logo {
-        height: 60px; /* Tamaño prudente para un header */
+        height: 60px;
         width: auto;
         display: block;
     }
 
-    /* Responsive para celulares */
     @media (max-width: 768px) {
         .header {
-            flex-direction: column; /* En celulares se apilan verticalmente */
+            flex-direction: column;
             text-align: center;
             gap: 15px;
         }
@@ -176,8 +174,13 @@ if (isset($settings['r2_pres'])) {
 
     <div class="nav-container">
         <nav class="nav justify-content-center">
+            
             <a href="home.php" class="btn btn-primary">
                 <i class="fas fa-home"></i> Home
+            </a>
+
+            <a href="booking.php" class="btn btn-primary">
+                <i class="fas fa-calendar-alt"></i> Room Booking
             </a>
 
             <div class="dropdown">
@@ -187,9 +190,6 @@ if (isset($settings['r2_pres'])) {
                 <ul class="dropdown-menu" aria-labelledby="dashboardMenuButton">
                     <li><a class="dropdown-item" href="hc_dash.php">Holding Cage</a></li>
                     <li><a class="dropdown-item" href="bc_dash.php">Breeding Cage</a></li>
-                    
-                    <li><a class="dropdown-item" href="booking.php"><i class="fas fa-calendar-alt me-1"></i> Room Booking</a></li>
-                    
                     <?php
                     if (!empty($r1_temp) || !empty($r1_humi) || !empty($r1_illu) || !empty($r1_pres) || !empty($r2_temp) || !empty($r2_humi) || !empty($r2_illu) || !empty($r2_pres)) {
                         echo '<li><a class="dropdown-item" href="iot_sensors.php">IOT Sensors</a></li>';
@@ -206,7 +206,6 @@ if (isset($settings['r2_pres'])) {
                     <li><a class="dropdown-item" href="user_profile.php">User Profile</a></li>
                     <li><a class="dropdown-item" href="manage_tasks.php">Tasks &amp; Reminders</a></li>
                     <?php
-                    // Display admin options if the user is an admin
                     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
                         echo '<li><hr class="dropdown-divider"></li>';
                         echo '<li class="dropdown-header">Administration</li>';

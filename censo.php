@@ -2,7 +2,6 @@
 session_start();
 require 'dbcon.php';
 
-// 🔐 Seguridad estándar de tu sitio
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit;
@@ -10,86 +9,160 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 require 'header.php';
 
-// Forzamos a PHP a mostrar errores si algo falla
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// --- 📊 CONSULTA 1: CENSO POR INVESTIGADOR (PI) ---
+$query_pi = "
+    SELECT u.name AS pi_name, SUM(cantidad) AS total_animales
+    FROM (
+        -- 1. Ratones en Holding
+        SELECT c.pi_name AS user_id, COUNT(m.id) AS cantidad
+        FROM mice m
+        INNER JOIN cages c ON m.cage_id = c.cage_id
+        GROUP BY c.pi_name
+
+        UNION ALL
+
+        -- 2. Adultos en Breeding (male_n + female_n)
+        SELECT c.pi_name AS user_id, SUM(COALESCE(b.male_n, 0) + COALESCE(b.female_n, 0)) AS cantidad
+        FROM breeding b
+        INNER JOIN cages c ON b.cage_id = c.cage_id
+        GROUP BY c.pi_name
+
+        UNION ALL
+
+        -- 3. Crías vivas en Litters (pups_alive)
+        SELECT c.pi_name AS user_id, SUM(COALESCE(l.pups_alive, 0)) AS cantidad
+        FROM litters l
+        INNER JOIN cages c ON l.cage_id = c.cage_id
+        GROUP BY c.pi_name
+    ) AS unificado
+    INNER JOIN users u ON unificado.user_id = u.id
+    GROUP BY u.id, u.name
+    ORDER BY total_animales DESC
+";
+
+$res_pi = mysqli_query($con, $query_pi);
+
+
+// --- 🧬 CONSULTA 2: CENSO POR CEPA (STRAIN) ---
+$query_strain = "
+    SELECT s.str_name AS strain_name, SUM(cantidad) AS total_animales
+    FROM (
+        -- 1. Ratones en Holding agrupados por su cepa (conectando holding y strains)
+        SELECT h.strain AS str_id, COUNT(m.id) AS cantidad
+        FROM mice m
+        INNER JOIN holding h ON m.cage_id = h.cage_id
+        GROUP BY h.strain
+
+        UNION ALL
+
+        -- 2. Parejas de Breeding agrupadas por su cruce/cepa (usando el campo cross como identificador de cepa)
+        SELECT b.cross AS str_id, SUM(COALESCE(b.male_n, 0) + COALESCE(b.female_n, 0)) AS cantidad
+        FROM breeding b
+        GROUP BY b.cross
+
+        UNION ALL
+
+        -- 3. Crías en Litters (heredan la cepa/cross de la tabla breeding)
+        SELECT b.cross AS str_id, SUM(COALESCE(l.pups_alive, 0)) AS cantidad
+        FROM litters l
+        INNER JOIN breeding b ON l.cage_id = b.cage_id
+        GROUP BY b.cross
+    ) AS unificado_cepa
+    INNER JOIN strains s ON unificado_cepa.str_id = s.str_id
+    GROUP BY s.str_id, s.str_name
+    ORDER BY total_animales DESC
+";
+
+$res_strain = mysqli_query($con, $query_strain);
+$total_general = 0;
 ?>
 
 <div class="container mt-4 mb-5">
-    <div class="d-flex align-items-center mb-4">
-        <h2 class="text-dark"><i class="fas fa-database me-2"></i> Diccionario de Columnas del Bioterio</h2>
-    </div>
-
-    <div class="alert alert-info shadow-sm">
-        <i class="fas fa-info-circle me-2"></i> Este script lee directamente la estructura del motor MySQL. Despliega las pestañas para ver cómo se llaman las columnas de cada tabla.
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-secondary"><i class="fas fa-chart-pie me-2"></i> Censo General del Bioterio</h2>
+        <div>
+            <button onclick="window.print();" class="btn btn-secondary">
+                <i class="fas fa-print me-1"></i> Imprimir Reporte
+            </button>
+        </div>
     </div>
 
     <div class="row">
-        <div class="col-md-12">
-
-            <?php
-            // Lista de tablas que me diste para auditar
-            $tablas_a_revisar = [
-                'mice', 'litters', 'holding', 'breeding', 'cages', 
-                'users', 'usuarios', 'strains', 'iacuc', 'cage_iacuc', 
-                'cage_users', 'tasks', 'settings'
-            ];
-
-            foreach ($tablas_a_revisar as $tabla) {
-                // Consultamos las columnas de la tabla actual
-                $query = "SHOW COLUMNS FROM `$tabla`";
-                $result = mysqli_query($con, $query);
-
-                if ($result) {
-                    ?>
-                    <div class="card shadow-sm mb-3">
-                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0"><i class="fas fa-table me-2"></i> Tabla: <span class="badge bg-primary fs-6"><?= $tabla ?></span></h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <table class="table table-hover table-sm mb-0 align-middle">
-                                <thead class="table-secondary">
-                                    <tr>
-                                        <th class="ps-3">Nombre de Columna (Field)</th>
-                                        <th>Tipo de Dato (Type)</th>
-                                        <th>¿Puede ser Nulo? (Null)</th>
-                                        <th>Llave (Key)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($row = mysqli_fetch_assoc($result)): ?>
+        
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white p-3">
+                    <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i> Inventario por Investigador (PI)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Investigador Principal</th>
+                                    <th class="text-center">Animales Totales</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if ($res_pi && mysqli_num_rows($res_pi) > 0): ?>
+                                    <?php while ($row = mysqli_fetch_assoc($res_pi)): 
+                                        $total_general += $row['total_animales']; ?>
                                         <tr>
-                                            <td class="ps-3 font-monospace fw-bold text-secondary"><?= $row['Field'] ?></td>
-                                            <td><code><?= $row['Type'] ?></code></td>
-                                            <td><?= $row['Null'] ?></td>
-                                            <td>
-                                                <?php if ($row['Key'] === 'PRI'): ?>
-                                                    <span class="badge bg-danger">Llave Primaria</span>
-                                                <?php elseif ($row['Key'] === 'MUL'): ?>
-                                                    <span class="badge bg-warning text-dark">Llave Foránea/Índice</span>
-                                                <?php else: ?>
-                                                    -
-                                                <?php endif; ?>
-                                            </td>
+                                            <td class="fw-bold"><?= htmlspecialchars($row['pi_name']) ?></td>
+                                            <td class="text-center table-primary fw-bold fs-5"><?= number_format($row['total_animales'], 0) ?></td>
                                         </tr>
                                     <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted p-4">No se encontraron animales activos.</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                            <tfoot class="table-dark">
+                                <tr>
+                                    <td>Gran Total de Animales Vivos</td>
+                                    <td class="text-center fw-bold fs-4"><?= number_format($total_general, 0) ?> ratones</td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
-                    <?php
-                } else {
-                    ?>
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i> No se pudo leer la tabla <strong><?= $tabla ?></strong>. Error: <?= mysqli_error($con) ?>
-                    </div>
-                    <?php
-                }
-            }
-            ?>
-
+                </div>
+            </div>
         </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white p-3">
+                    <h5 class="mb-0"><i class="fas fa-dna me-2"></i> Inventario por Cepa</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cepa</th>
+                                <th class="text-center">Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($res_strain && mysqli_num_rows($res_strain) > 0): ?>
+                                <?php while ($row = mysqli_fetch_assoc($res_strain)): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($row['strain_name']) ?></td>
+                                        <td class="text-center fw-bold"><?= number_format($row['total_animales'], 0) ?></td>
+                                    </tr>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted p-4">No hay cepas activas computadas.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 

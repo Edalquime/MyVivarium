@@ -2,66 +2,53 @@
 
 /**
  * Printable Holding Cage Cards
- * 
- * This script generates a printable view of holding cage cards. Each card includes detailed information 
- * about a holding cage, such as PI name, strain, IACUC, user, quantity, DOB, sex, parent cage, and mouse 
- * details. The script handles multiple cage IDs passed via URL parameters, generates QR codes for each cage, 
- * and arranges the cards in a 2x2 grid layout suitable for printing.
- * 
+ * * Genera la vista de impresión 2x2 para jaulas de mantenimiento (Holding).
+ * Ahora incluye los datos de contacto (Teléfono y Correo) de los usuarios vinculados.
  */
 
-// Start a new session or resume the existing session
 session_start();
 
-// Include the database connection file
 require 'dbcon.php';
 
-// Check if the user is logged in
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit;
 }
 
-// Query to get lab data (URL) from the settings table
 $labQuery = "SELECT value FROM settings WHERE name = 'url' LIMIT 1";
 $labResult = mysqli_query($con, $labQuery);
 
-// Default value if the query fails or returns no result
 $url = "";
 if ($row = mysqli_fetch_assoc($labResult)) {
     $url = $row['value'];
 }
 
-// Check if the ID parameter is set in the URL
 if (isset($_GET['id'])) {
-    $ids = explode(',', $_GET['id']); // Split the ID parameter into an array of IDs
+    $ids = explode(',', $_GET['id']); 
     $holdingcages = [];
 
     foreach ($ids as $id) {
-        $id = mysqli_real_escape_string($con, $id); // Sanitize the ID
+        $id = mysqli_real_escape_string($con, $id); 
 
-        // Fetch the holding cage record with the specified ID
+        // Consulta base sin user_id (lo sacamos aparte por seguridad de la estructura)
         $query = "SELECT h.*, pi.name AS pi_name, c.quantity as qty, h.dob, h.sex, h.parent_cg, s.str_name
                   FROM holding h
                   LEFT JOIN cages c ON h.cage_id = c.cage_id
                   LEFT JOIN users pi ON c.pi_name = pi.id
                   LEFT JOIN strains s ON h.strain = s.str_id
                   WHERE h.cage_id = ?";
+        
         $stmt = $con->prepare($query);
         $stmt->bind_param("s", $id);
         $stmt->execute();
         $result = $stmt->get_result();
 
-        // If a valid record is found, add it to the holdingcages array
         if (mysqli_num_rows($result) === 1) {
             $holdingcage = mysqli_fetch_assoc($result);
 
-            // Fetch mouse data for this cage, limit to first 5 records
-            $mouseQuery = "SELECT mouse_id, genotype
-                           FROM mice
-                           WHERE cage_id = ?
-                           LIMIT 5";
+            // Ratones (Mice)
+            $mouseQuery = "SELECT mouse_id, genotype FROM mice WHERE cage_id = ? LIMIT 5";
             $stmtMouse = $con->prepare($mouseQuery);
             $stmtMouse->bind_param("s", $id);
             $stmtMouse->execute();
@@ -69,7 +56,7 @@ if (isset($_GET['id'])) {
             $mouseData = mysqli_fetch_all($mouseResult, MYSQLI_ASSOC);
             $stmtMouse->close();
 
-            // Fetch IACUC data
+            // IACUC
             $iacucQuery = "SELECT GROUP_CONCAT(i.iacuc_id SEPARATOR ', ') AS iacuc_ids
                            FROM cage_iacuc ci
                            JOIN iacuc i ON ci.iacuc_id = i.iacuc_id
@@ -82,59 +69,75 @@ if (isset($_GET['id'])) {
             $holdingcage['iacuc'] = $iacucRow['iacuc_ids'] ?? 'N/A';
             $stmtIacuc->close();
 
-            // Fetch user initials for this cage
-            $userQuery = "SELECT u.initials
-                          FROM cage_users cu
-                          JOIN users u ON cu.user_id = u.id
-                          WHERE cu.cage_id = ?";
-            $stmtUser = $con->prepare($userQuery);
-            $stmtUser->bind_param("s", $id);
-            $stmtUser->execute();
-            $userResult = $stmtUser->get_result();
-            $userInitials = [];
-            while ($userRow = mysqli_fetch_assoc($userResult)) {
-                $userInitials[] = htmlspecialchars($userRow['initials']);
-            }
-            $holdingcage['user_initials'] = implode(', ', $userInitials);
-            $stmtUser->close();
+            // 🔥 DATOS DE CONTACTO DE USUARIOS VINCULADOS
+            $contactData = getUsersContactByCageId($con, $id);
+            $holdingcage['user_initials'] = $contactData['initials'];
+            $holdingcage['contact_phone'] = $contactData['phones'];
+            $holdingcage['contact_email'] = $contactData['emails'];
 
-            // Append the mouse data to the holding cage record
             $holdingcage['mice'] = $mouseData;
-
-            // Add the holding cage with mouse data to the array
             $holdingcages[] = $holdingcage;
+
             $stmt->close();
         } else {
-            // Set an error message for an invalid ID and redirect to the dashboard
             $_SESSION['message'] = "Invalid ID: $id";
             header("Location: hc_dash.php");
             exit();
         }
     }
 } else {
-    // Set an error message if the ID parameter is missing and redirect to the dashboard
     $_SESSION['message'] = 'ID parameter is missing.';
     header("Location: hc_dash.php");
     exit();
 }
+
+
+/**
+ * Función centralizada para extraer información de contacto del personal de bioterio
+ */
+function getUsersContactByCageId($con, $cageId)
+{
+    $query = "SELECT u.initials, u.username, u.phone 
+              FROM users u 
+              INNER JOIN cage_users cu ON u.id = cu.user_id 
+              WHERE cu.cage_id = ?";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("s", $cageId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $initials = [];
+    $emails = [];
+    $phones = [];
+
+    while ($row = $result->fetch_assoc()) {
+        if (!empty($row['initials'])) $initials[] = htmlspecialchars($row['initials']);
+        if (!empty($row['username'])) $emails[] = htmlspecialchars($row['username']);
+        if (!empty($row['phone'])) $phones[] = htmlspecialchars($row['phone']);
+    }
+    $stmt->close();
+
+    return [
+        'initials' => !empty($initials) ? implode(', ', $initials) : 'N/A',
+        'emails' => !empty($emails) ? implode(', ', $emails) : 'N/A',
+        'phones' => !empty($phones) ? implode(', ', $phones) : 'N/A'
+    ];
+}
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
-    <!-- Required meta tags for character encoding and viewport settings -->
     <meta charset="utf-8">
     <title>Printable 2x2 Card Table</title>
     <style>
-        /* Set up page size and margins for printing */
         @page {
             size: letter landscape;
             margin: 0;
             padding: 0;
         }
 
-        /* Print styles */
         @media print {
             body {
                 margin: 0;
@@ -142,7 +145,6 @@ if (isset($_GET['id'])) {
             }
         }
 
-        /* General styles for body and HTML elements */
         body,
         html {
             margin: 0;
@@ -152,12 +154,13 @@ if (isset($_GET['id'])) {
             box-sizing: border-box;
             display: grid;
             place-items: center;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         span {
             font-size: 8pt;
             padding: 0px;
-            line-height: 1;
+            line-height: 1.2;
             display: inline-block;
         }
 
@@ -175,7 +178,7 @@ if (isset($_GET['id'])) {
             box-sizing: border-box;
             border-collapse: collapse;
             margin: 0;
-            padding: 0;
+            padding: 2px;
             border-spacing: 0;
         }
 
@@ -186,16 +189,13 @@ if (isset($_GET['id'])) {
 </head>
 
 <body>
-    <!-- Main table to hold the 2x2 card layout -->
     <table style="width: 10in; height: 6in; border-collapse: collapse; border: 1px dashed #D3D3D3;">
         <?php foreach ($holdingcages as $index => $holdingcage) : ?>
 
-            <!-- Start a new row for every two cages -->
             <?php if ($index % 2 === 0) : ?>
                 <tr style="height: 3in; border: 1px dashed #D3D3D3; vertical-align:top;">
                 <?php endif; ?>
 
-                <!-- Each cell contains a holding cage card -->
                 <td style="width: 5in; border: 1px dashed #D3D3D3;">
                     <table border="1" style="width: 5in; height: 1.5in;" id="cageA">
                         <tr>
@@ -206,55 +206,60 @@ if (isset($_GET['id'])) {
                         </tr>
                         <tr>
                             <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">PI Name:</span>
+                                <span style="font-weight: bold; text-transform: uppercase;">PI Name:</span>
                                 <span><?= htmlspecialchars($holdingcage["pi_name"]); ?></span>
                             </td>
                             <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Strain:</span>
-                                <span><?= htmlspecialchars($holdingcage["strain"]); ?></span>
+                                <span style="font-weight: bold; text-transform: uppercase;">Strain:</span>
+                                <span><?= htmlspecialchars($holdingcage["str_name"]); ?></span>
                             </td>
-                            <td rowspan="4" style="width:20%; text-align:center;">
-                                <img src="<?php echo "https://api.qrserver.com/v1/create-qr-code/?size=75x75&data=https://" . $url . "/hc_view.php?id=" . $holdingcage["cage_id"] . "&choe=UTF-8"; ?>" alt="QR Code">
+                            <td rowspan="4" style="width:20%; text-align:center; vertical-align:middle;">
+                                <img src="<?php echo "https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=https://" . $url . "/hc_view.php?id=" . $holdingcage["cage_id"] . "&choe=UTF-8"; ?>" alt="QR Code">
                             </td>
                         </tr>
                         <tr>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">IACUC:</span>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">IACUC:</span>
                                 <span><?= htmlspecialchars($holdingcage["iacuc"]); ?></span>
                             </td>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">User:</span>
-                                <span><?= htmlspecialchars($holdingcage['user_initials']); ?></span>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">User (Initials):</span>
+                                <span><?= $holdingcage['user_initials']; ?></span>
                             </td>
                         </tr>
                         <tr>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Qty:</span>
-                                <span><?= htmlspecialchars($holdingcage["qty"]); ?></span>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">User Phone:</span>
+                                <span style="font-size: 7.5pt;"><?= $holdingcage["contact_phone"] ?></span>
                             </td>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">DOB:</span>
-                                <span><?= htmlspecialchars($holdingcage["dob"]); ?></span>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">User Email:</span>
+                                <span style="font-size: 7pt; word-break: break-all;"><?= $holdingcage["contact_email"] ?></span>
                             </td>
                         </tr>
-                        <tr style="border-bottom: none;">
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Sex:</span>
-                                <span><?= htmlspecialchars(ucfirst($holdingcage["sex"])); ?></span>
+                        <tr>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">Sex:</span>
+                                <span><?= htmlspecialchars(ucfirst($holdingcage["sex"])); ?></span> |
+                                <span style="font-weight: bold; text-transform: uppercase;">Qty:</span>
+                                <span><?= htmlspecialchars($holdingcage["qty"]); ?></span>
                             </td>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase;">Parent Cage:</span>
+                            <td>
+                                <span style="font-weight: bold; text-transform: uppercase;">DOB:</span>
+                                <span><?= htmlspecialchars($holdingcage["dob"]); ?></span> |
+                                <span style="font-weight: bold; text-transform: uppercase;">Parent:</span>
                                 <span><?= htmlspecialchars($holdingcage["parent_cg"]); ?></span>
                             </td>
                         </tr>
                     </table>
+
                     <table border="1" style="width: 5in; height: 1.5in; border-top: none;" id="cageB">
                         <tr>
-                            <td style="width:40%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align:center;">Mouse ID</span>
+                            <td style="width:40%; text-align:center;">
+                                <span style="font-weight: bold; text-transform: uppercase;">Mouse ID</span>
                             </td>
-                            <td style="width:60%;">
-                                <span style="font-weight: bold; padding:3px; text-transform: uppercase; border-top: none; text-align:center;">Genotype</span>
+                            <td style="width:60%; text-align:center;">
+                                <span style="font-weight: bold; text-transform: uppercase;">Genotype</span>
                             </td>
                         </tr>
                         <?php foreach (range(1, 5) as $i) : ?>
@@ -270,7 +275,6 @@ if (isset($_GET['id'])) {
                     </table>
                 </td>
 
-                <!-- Close the row after every two cages or at the end of the list -->
                 <?php if ($index % 2 === 1 || $index === count($holdingcages) - 1) : ?>
                 </tr>
             <?php endif; ?>

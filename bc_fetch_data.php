@@ -1,50 +1,50 @@
 <?php
 
 /**
- * Breeding Cage Pagination and Search Script
+ * Script de Paginación y Búsqueda de Jaulas de Cruce
  *
- * This script handles the pagination and search functionality for breeding cages.
- * It starts a session, includes the database connection, handles search filters,
- * fetches cage data with pagination, and generates HTML for table rows and pagination links.
- * The generated HTML is returned as a JSON response.
+ * Este script maneja la paginación y la funcionalidad de búsqueda para las jaulas de cruce.
+ * Inicia sesión, incluye la conexión a la base de datos, maneja los filtros de búsqueda,
+ * obtiene los datos de las jaulas con paginación y genera el HTML para las filas de la tabla y los enlaces de paginación.
+ * El HTML generado se devuelve como una respuesta JSON.
  *
  */
 
-// Start a new session or resume the existing session
+// Iniciar una nueva sesión o reanudar la existente
 session_start();
 
-// Disable error display in production (errors logged to server logs)
+// Desactivar la visualización de errores en producción (los errores se registran en los logs del servidor)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-// Include the database connection
+// Incluir la conexión a la base de datos
 require 'dbcon.php';
 
-// Start output buffering
+// Iniciar el búfer de salida
 ob_start();
 
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
+// Verificar si el usuario no ha iniciado sesión, redirigirlo a index.php
 if (!isset($_SESSION['username'])) {
     header("Location: index.php");
-    exit; // Exit to ensure no further code is executed
+    exit; // Salir para asegurar que no se ejecute más código
 }
 
-// Fetch user role and ID from session
+// Obtener el rol y el ID del usuario de la sesión
 $userRole = $_SESSION['role'] ?? '';
 $currentUserId = $_SESSION['user_id'] ?? '';
 
-// Pagination variables
-$limit = 10; // Number of entries to show in a page
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1; // Current page number, default to 1
-$offset = ($page - 1) * $limit; // Offset for the SQL query
+// Variables de paginación
+$limit = 10; // Número de entradas a mostrar en una página
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1; // Número de página actual, por defecto 1
+$offset = ($page - 1) * $limit; // Desplazamiento para la consulta SQL
 
-// Handle the search filter
+// Manejar el filtro de búsqueda
 $searchQuery = '';
 if (isset($_GET['search'])) {
-    $searchQuery = mysqli_real_escape_string($con, urldecode($_GET['search'])); // Decode and escape the search parameter
+    $searchQuery = mysqli_real_escape_string($con, urldecode($_GET['search'])); // Decodificar y escapar el parámetro de búsqueda
 }
 
-// Fetch the distinct cage IDs with pagination using prepared statements
+// Obtener los IDs de jaula distintos con paginación utilizando sentencias preparadas
 if (!empty($searchQuery)) {
     $searchPattern = '%' . $searchQuery . '%';
     
@@ -75,7 +75,7 @@ if (!empty($searchQuery)) {
     $result = $stmt->get_result();
 }
 
-// Generate the table rows
+// Generar las filas de la tabla
 $tableRows = '';
 
 if ($result->num_rows > 0) {
@@ -98,23 +98,23 @@ if ($result->num_rows > 0) {
         $tableRows .= '<tr>';
         $tableRows .= '<td>' . htmlspecialchars($cageID) . '</td>';
         
-        // --- COLUMNA DE ACCIONES (4 botones originales con espaciado correcto) ---
+        // --- COLUMNA DE ACCIONES (Traducido al Español) ---
         $tableRows .= '<td style="width: 1%; white-space: nowrap; text-align: center;">';
         $tableRows .= '<div class="d-flex justify-content-center align-items-center" style="gap: 5px;">';
 
-        // 1. Ver Jaula (View)
-        $tableRows .= '<a href="bc_view.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-primary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="View Cage"><i class="fas fa-eye"></i></a>';
+        // 1. Ver Jaula (Traducido tooltip)
+        $tableRows .= '<a href="bc_view.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-primary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Ver Jaula"><i class="fas fa-eye"></i></a>';
         
-        // 2. Gestionar Tareas (Manage Tasks)
-        $tableRows .= '<a href="manage_tasks.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Manage Tasks"><i class="fas fa-tasks"></i></a>';
+        // 2. Gestionar Tareas (Traducido tooltip)
+        $tableRows .= '<a href="manage_tasks.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Gestionar Tareas"><i class="fas fa-tasks"></i></a>';
 
         // Validar Roles para edición y borrado
         if ($userRole === 'admin' || in_array($currentUserId, $assignedUsers)) {
-            // 3. Editar Jaula (Edit)
-            $tableRows .= '<a href="bc_edit.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Edit Cage"><i class="fas fa-edit"></i></a>';
+            // 3. Editar Jaula (Traducido tooltip)
+            $tableRows .= '<a href="bc_edit.php?id=' . rawurlencode($cageID) . '&page=' . $page . '&search=' . urlencode($searchQuery) . '" class="btn btn-secondary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Editar Jaula"><i class="fas fa-edit"></i></a>';
             
-            // 4. Borrar Jaula (Delete)
-            $tableRows .= '<a href="#" onclick="confirmDeletion(\'' . htmlspecialchars($cageID) . '\')" class="btn btn-danger btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Delete Cage"><i class="fas fa-trash"></i></a>';
+            // 4. Borrar Jaula (Traducido tooltip y confirmación JS de bc_dash llamará en español)
+            $tableRows .= '<a href="#" onclick="confirmDeletion(\'' . htmlspecialchars($cageID) . '\')" class="btn btn-danger btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Eliminar Jaula"><i class="fas fa-trash"></i></a>';
         }
 
         $tableRows .= '</div>';
@@ -122,6 +122,7 @@ if ($result->num_rows > 0) {
         $tableRows .= '</tr>';
     }
 } else {
+    // Texto de "sin resultados" traducido al español
     $tableRows .= '<tr><td colspan="2" class="text-center text-muted p-4">No se encontraron jaulas de cruce.</td></tr>';
 }
 
@@ -129,7 +130,7 @@ if ($stmt) {
     $stmt->close();
 }
 
-// Generate the pagination links
+// Generar los enlaces de paginación
 $paginationLinks = '';
 if ($totalPages > 1) {
     for ($i = 1; $i <= $totalPages; $i++) {

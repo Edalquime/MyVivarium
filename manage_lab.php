@@ -4,7 +4,7 @@
  * Página de Gestión del Laboratorio
  * * Este script permite a los usuarios administradores ver y actualizar los detalles del laboratorio, incluyendo el nombre del laboratorio, URL, zona horaria, enlaces de sensores IoT para dos salas,
  * y las claves secreta y de sitio de Cloudflare Turnstile.
- */
+ * */
 
 // Iniciar una nueva sesión o reanudar la existente
 session_start();
@@ -24,7 +24,7 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Obtener detalles del laboratorio de la base de datos
+// Fetch lab details from the database
 $query = "SELECT * FROM settings";
 $result = mysqli_query($con, $query);
 $labData = [];
@@ -52,23 +52,22 @@ $defaultLabData = [
 $labData = array_merge($defaultLabData, $labData);
 
 $updateMessage = '';
-$messageType = '';
 
-// Manejar el envío del formulario para la actualización de datos del laboratorio
+// Handle form submission for lab data update
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_lab'])) {
 
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         die('La validación del token CSRF falló');
     }
 
-    // Sanear y obtener entradas del formulario
+    // Sanitize and fetch form inputs
     $inputFields = ['lab_name', 'url', 'timezone', 'r1_temp', 'r1_humi', 'r1_illu', 'r1_pres', 'r2_temp', 'r2_humi', 'r2_illu', 'r2_pres', 'cf-turnstile-secretKey', 'cf-turnstile-sitekey'];
     $inputData = [];
     foreach ($inputFields as $field) {
         $inputData[$field] = filter_input(INPUT_POST, $field, FILTER_SANITIZE_STRING);
     }
 
-    // Actualizar o insertar nuevos datos
+    // Update or insert new data
     foreach ($inputData as $name => $value) {
         $checkQuery = "SELECT COUNT(*) as count FROM settings WHERE name = ?";
         $checkStmt = $con->prepare($checkQuery);
@@ -79,12 +78,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_lab'])) {
         $checkStmt->close();
 
         if ($count > 0) {
-            // Actualizar configuración existente
+            // Update existing setting
             $updateQuery = "UPDATE settings SET value = ? WHERE name = ?";
             $updateStmt = $con->prepare($updateQuery);
             $updateStmt->bind_param("ss", $value, $name);
         } else {
-            // Insertar nueva configuración
+            // Insert new setting
             $insertQuery = "INSERT INTO settings (name, value) VALUES (?, ?)";
             $updateStmt = $con->prepare($insertQuery);
             $updateStmt->bind_param("ss", $name, $value);
@@ -93,7 +92,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_lab'])) {
         $updateStmt->close();
     }
 
-    // Refrescar datos del laboratorio
+    // Refresh lab data
     $result = mysqli_query($con, $query);
     $labData = [];
     while ($row = mysqli_fetch_assoc($result)) {
@@ -102,8 +101,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_lab'])) {
 
     $labData = array_merge($defaultLabData, $labData);
 
-    $updateMessage = "La información del laboratorio se actualizó con éxito.";
-    $messageType = "success";
+    $updateMessage = "La información del laboratorio se actualizó exitosamente.";
 }
 
 // Incluir el archivo de cabecera
@@ -122,7 +120,7 @@ require 'header.php';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <style>
-        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER --- */
+        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER AL FONDO --- */
         html, body {
             height: 100%;
             margin: 0;
@@ -143,7 +141,7 @@ require 'header.php';
         .page-footer {
             flex-shrink: 0;
         }
-        /* ----------------------------------------------- */
+        /* ----------------------------------------------------- */
 
         .main-card {
             border: none;
@@ -187,7 +185,7 @@ require 'header.php';
             align-items: center;
             gap: 5px;
         }
-        
+
         textarea.form-control {
             resize: none;
             overflow: hidden;
@@ -220,7 +218,7 @@ require 'header.php';
                             <div class="section-title">
                                 <i class="fas fa-id-card"></i> Información General del Sistema
                             </div>
-                            
+
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="lab_name" class="form-label">Nombre del Laboratorio / Plataforma</label>
@@ -235,7 +233,7 @@ require 'header.php';
                                 <div class="col-md-12">
                                     <label for="timezone" class="form-label">Zona Horaria (Timezone)</label>
                                     <input type="text" class="form-control" id="timezone" name="timezone" value="<?php echo htmlspecialchars($labData['timezone']); ?>" placeholder="Ej: America/Santiago">
-                                    <small class="form-text text-muted mt-2">
+                                    <small class="form-text text-muted mt-2 d-block">
                                         <i class="fas fa-info-circle me-1"></i> Puedes consultar la <a href="https://www.php.net/manual/es/timezones.php" target="_blank">lista de zonas horarias soportadas por PHP</a>.
                                     </small>
                                 </div>
@@ -321,6 +319,8 @@ require 'header.php';
         <?php include 'footer.php'; ?>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -328,6 +328,7 @@ require 'header.php';
             textarea.style.height = 'auto';
             textarea.style.height = (textarea.scrollHeight) + 'px';
         }
+
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('textarea').forEach(function(textarea) {
                 adjustTextareaHeight(textarea);

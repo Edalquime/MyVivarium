@@ -7,16 +7,17 @@
  */
 
 // Iniciar una nueva sesión o reanudar la existente
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 
 // Verificar si el usuario ha iniciado sesión y tiene el rol de administrador
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    // Redirigir a usuarios no administradores a la página de inicio
     header("Location: index.php");
-    exit; // Asegurar que no se ejecute más código
+    exit;
 }
 
 // Generación de token CSRF
@@ -33,10 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
     $action = filter_input(INPUT_POST, 'action', FILTER_SANITIZE_STRING);
 
-    // Inicializar variables de consulta
     $query = "";
 
-    // Determinar la acción a tomar: aprobar, poner en pendiente, eliminar usuario, establecer rol como administrador o usuario
     switch ($action) {
         case 'approve':
             $query = "UPDATE users SET status='approved' WHERE username=?";
@@ -57,7 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             die('Acción inválida');
     }
 
-    // Ejecutar la sentencia preparada si se establece una acción válida
     if (!empty($query)) {
         $statement = mysqli_prepare($con, $query);
         if ($statement) {
@@ -66,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mysqli_stmt_close($statement);
             $_SESSION['message'] = "¡Usuario actualizado correctamente!";
         } else {
-            // Registrar error y manejarlo con gracia
             error_log("Error de base de datos: " . mysqli_error($con));
             die('Error de base de datos');
         }
@@ -77,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $userquery = "SELECT * FROM users";
 $userresult = mysqli_query($con, $userquery);
 
-// Incluir el archivo de cabecera
+// Incluir el archivo de cabecera (Ya trae el CSS de Bootstrap 5)
 require 'header.php';
 mysqli_close($con);
 ?>
@@ -90,11 +87,9 @@ mysqli_close($con);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Gestión de Usuarios | <?php echo htmlspecialchars($labName); ?></title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <style>
-        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER AL FONDO --- */
         html, body {
             height: 100%;
             margin: 0;
@@ -115,7 +110,6 @@ mysqli_close($con);
         .page-footer {
             flex-shrink: 0;
         }
-        /* ----------------------------------------------------- */
 
         .main-card {
             border: none;
@@ -190,8 +184,7 @@ mysqli_close($con);
         }
 
         @media (max-width: 576px) {
-            .table th,
-            .table td {
+            .table th, .table td {
                 display: block;
                 width: 100%;
             }
@@ -325,17 +318,7 @@ mysqli_close($con);
         <?php include 'footer.php'; ?>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-        // Inicializar tooltips interactivos de Bootstrap 5
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-          return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-
         var currentAdminUsername = "<?php echo htmlspecialchars($_SESSION['username']); ?>";
 
         function confirmAdminAction(username) {

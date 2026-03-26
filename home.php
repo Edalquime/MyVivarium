@@ -275,12 +275,10 @@ require 'header.php';
         <div class="row g-4 mb-5">
             
             <div class="col-lg-4 col-md-6">
-                <div class="card modern-card h-100">
-                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex align-items-center">
+                <div class="card modern-card h-100"> <div class="card-header modern-card-header bg-dark text-white p-3">
                         <h5 class="mb-0 fs-6"><i class="fas fa-boxes me-2"></i> Resumen de Jaulas</h5>
                     </div>
-                    <div class="card-body bg-light d-flex flex-column justify-content-center p-4">
-                        <div class="row g-3">
+                    <div class="card-body bg-light d-flex flex-column justify-content-center p-4"> <div class="row g-3">
                             <div class="col-12">
                                 <a href="hc_dash.php" class="stat-link">
                                     <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between bg-white">
@@ -313,12 +311,10 @@ require 'header.php';
             </div>
 
             <div class="col-lg-4 col-md-6">
-                <div class="card modern-card h-100">
-                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex align-items-center">
+                <div class="card modern-card h-100"> <div class="card-header modern-card-header bg-dark text-white p-3">
                         <h5 class="mb-0 fs-6"><i class="fas fa-tasks me-2"></i> Resumen de tus Tareas</h5>
                     </div>
-                    <div class="card-body bg-light p-4 d-flex flex-column justify-content-center">
-                        <div class="row g-3">
+                    <div class="card-body bg-light p-4 d-flex flex-column justify-content-center"> <div class="row g-3">
                             <div class="col-sm-6">
                                 <a href="manage_tasks.php?filter=assigned_to_me" class="stat-link">
                                     <div class="summary-stat-box p-3 text-center bg-white">
@@ -357,15 +353,13 @@ require 'header.php';
             </div>
 
             <div class="col-lg-4 col-md-12">
-                <div class="card modern-card h-100">
-                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                <div class="card modern-card h-100"> <div class="card-header modern-card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
                         <h5 class="mb-0 fs-6"><i class="fas fa-sticky-note me-2"></i> Notas Generales</h5>
                         <button type="button" class="btn btn-primary btn-sm d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#noteModal" title="Añadir nueva nota">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="card-body bg-light p-4 d-flex flex-column">
-                        <div class="bg-white p-3 rounded border flex-grow-1 overflow-auto" style="max-height: 250px;">
+                    <div class="card-body bg-light p-4 d-flex flex-column h-100"> <div class="bg-white p-3 rounded border flex-grow-1 overflow-auto" style="max-height: 250px;">
                             <?php include 'nt_app.php'; ?>
                         </div>
                     </div>

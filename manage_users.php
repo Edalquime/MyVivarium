@@ -4,7 +4,7 @@
  * Página de Gestión de Usuarios
  * * Este script proporciona funcionalidad para que un administrador gestione usuarios, incluyendo aprobar, poner en pendiente, eliminar usuarios
  * y cambiar roles de usuario. También incluye protección CSRF y mejoras de seguridad de sesión.
- * */
+ */
 
 // Iniciar una nueva sesión o reanudar la existente
 session_start();
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mysqli_stmt_bind_param($statement, "s", $username);
             mysqli_stmt_execute($statement);
             mysqli_stmt_close($statement);
-            $_SESSION['message'] = "Usuario actualizado correctamente.";
+            $_SESSION['message'] = "¡Usuario actualizado correctamente!";
         } else {
             // Registrar error y manejarlo con gracia
             error_log("Error de base de datos: " . mysqli_error($con));
@@ -94,7 +94,7 @@ mysqli_close($con);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <style>
-        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER --- */
+        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER AL FONDO --- */
         html, body {
             height: 100%;
             margin: 0;
@@ -115,7 +115,7 @@ mysqli_close($con);
         .page-footer {
             flex-shrink: 0;
         }
-        /* ----------------------------------------------- */
+        /* ----------------------------------------------------- */
 
         .main-card {
             border: none;
@@ -228,17 +228,6 @@ mysqli_close($con);
             }
         }
     </style>
-
-    <script>
-        var currentAdminUsername = "<?php echo htmlspecialchars($_SESSION['username']); ?>";
-
-        function confirmAdminAction(username) {
-            if (username === currentAdminUsername) {
-                return confirm("¿Estás seguro de que deseas cambiar la configuración de tu propia cuenta? Esto podría afectar tus permisos actuales.");
-            }
-            return true;
-        }
-    </script>
 </head>
 
 <body>
@@ -336,15 +325,25 @@ mysqli_close($con);
         <?php include 'footer.php'; ?>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Inicializar tooltips de Bootstrap 5
+        // Inicializar tooltips interactivos de Bootstrap 5
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
           return new bootstrap.Tooltip(tooltipTriggerEl)
         })
+
+        var currentAdminUsername = "<?php echo htmlspecialchars($_SESSION['username']); ?>";
+
+        function confirmAdminAction(username) {
+            if (username === currentAdminUsername) {
+                return confirm("¿Estás seguro de que deseas cambiar la configuración de tu propia cuenta?");
+            }
+            return true;
+        }
     </script>
 </body>
 

@@ -542,7 +542,7 @@ require 'header.php';
 
                         <div class="section-card">
                             <div class="section-title">
-                                <i class="fas fa-paw"></i> Censo de Ratones (Total: <?= htmlspecialchars($holdingcage['quantity']); ?>)
+                                <i class="fas fa-paw"></i> Información Individual de Ratones (Total: <?= htmlspecialchars($holdingcage['quantity']); ?>)
                             </div>
 
                             <div id="mouse_fields_container">

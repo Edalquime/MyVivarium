@@ -43,6 +43,9 @@ if (isset($_GET['id'])) {
 }
 $stmt->execute();
 $result = $stmt->get_result();
+
+$coloresPostit = ['', 'postit-rosa', 'postit-azul', 'postit-verde'];
+$contadorColores = 0;
 ?>
 
 <!DOCTYPE html>
@@ -52,91 +55,140 @@ $result = $stmt->get_result();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Notas Adhesivas</title>
+    
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+        .nt-container {
+            width: 100%;
+            padding: 0;
         }
 
+        /* Contenedor Flex que agrupa todos los Post-its */
         .sticky-notes-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
+            gap: 20px;
+            justify-content: flex-start;
+            padding: 10px 0;
         }
 
+        /* Estilo base del Post-it (Amarillo Pastel clásico) */
         .sticky-note {
-            background-color: #fff8b3;
-            border: 1px solid #e6d381;
-            padding: 20px 15px;
-            margin-bottom: 15px;
-            border-radius: 15px;
+            background-color: #fffb96;
+            padding: 20px;
+            margin-bottom: 5px;
+            border-radius: 4px;
             position: relative;
-            width: 300px;
+            width: 220px;
+            min-height: 220px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 5px 5px 12px rgba(0, 0, 0, 0.12);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            border-bottom-right-radius: 50px 4px; /* Simula la esquina levantada */
         }
 
-        .sticky-note::before {
-            content: '';
-            width: 30px;
-            height: 30px;
-            background: url('images/pin-image.webp') no-repeat center center;
-            background-size: contain;
-            position: absolute;
-            top: -10px;
-            left: 2px;
+        /* Otras variantes de colores para que se vea como un tablero real */
+        .postit-rosa { background-color: #ffc2df !important; }
+        .postit-azul { background-color: #c2e2ff !important; }
+        .postit-verde { background-color: #c2ffc7 !important; }
+
+        /* Rotación sutil aleatoria simulando que se pegaron a mano */
+        .sticky-note:nth-child(even) {
+            transform: rotate(1.5deg);
+        }
+        .sticky-note:nth-child(odd) {
+            transform: rotate(-2deg);
+        }
+        .sticky-note:nth-child(3n) {
+            transform: rotate(1deg);
         }
 
-        .timestamp,
-        .userid {
+        /* Efecto al pasar el mouse por encima */
+        .sticky-note:hover {
+            box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.18);
+            transform: scale(1.05) rotate(0deg) !important;
+            z-index: 10;
+        }
+
+        .sticky-note .note-content {
+            font-size: 0.88rem;
+            color: #2c3e50;
+            line-height: 1.4;
+            word-wrap: break-word;
+            flex-grow: 1;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .sticky-note .timestamp {
+            font-size: 0.75rem;
+            color: #555;
+            font-weight: 600;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            padding-top: 5px;
             display: block;
-            font-size: 12px;
         }
 
-        .timestamp {
-            color: #888;
+        .sticky-note .userid {
+            display: block;
+            font-size: 0.8rem;
+            color: #4e73df;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
 
-        .userid {
-            color: blue;
-        }
-
-        .close-btn,
-        .edit-btn {
+        /* Botones de acción flotantes en las esquinas */
+        .sticky-note .close-btn,
+        .sticky-note .edit-btn {
             cursor: pointer;
             position: absolute;
-            top: 5px;
+            top: 8px;
             font-weight: bold;
-            color: #888;
+            color: rgba(0,0,0,0.3);
+            font-size: 0.9rem;
+            transition: color 0.2s;
         }
 
-        .close-btn {
-            right: 5px;
+        .sticky-note .close-btn {
+            right: 8px;
         }
 
-        .edit-btn {
-            right: 30px;
+        .sticky-note .edit-btn {
+            right: 28px;
         }
 
-        .close-btn:hover,
-        .edit-btn:hover {
-            color: #555;
+        .sticky-note .close-btn:hover {
+            color: #e74a3b;
+        }
+
+        .sticky-note .edit-btn:hover {
+            color: #f6c23e;
         }
 
         .add-note-btn {
-            background-color: #4CAF50;
+            background-color: #4e73df;
             color: white;
-            padding: 10px;
+            padding: 8px 16px;
             border: none;
             cursor: pointer;
-            margin-bottom: 25px;
-            border-radius: 5px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
         }
 
+        .add-note-btn:hover {
+            background-color: #2e59d9;
+        }
+
+        /* Modales Pop-up para Crear y Editar */
         .popup,
         .edit-popup {
             display: none;
@@ -144,12 +196,41 @@ $result = $stmt->get_result();
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 20px;
+            padding: 25px;
             background-color: #fff;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            z-index: 1000;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            border: none;
+            border-radius: 12px;
+            z-index: 1050;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 420px;
+        }
+
+        .popup .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ebedf0;
+            padding-bottom: 10px;
+        }
+
+        .popup-header h5 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .popup .popup-close {
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: #aaa;
+            transition: color 0.2s;
+        }
+
+        .popup .popup-close:hover {
+            color: #333;
         }
 
         .overlay {
@@ -159,101 +240,91 @@ $result = $stmt->get_result();
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 999;
+            background-color: rgba(0, 0, 0, 0.4);
+            z-index: 1040;
+            backdrop-filter: blur(2px);
         }
 
         #addNoteForm,
         #editNoteForm {
             display: flex;
             flex-direction: column;
-            width: 380px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 8px;
-            overflow-y: hidden;
+            width: 100%;
         }
 
         #note_text,
         #edit_note_text {
-            height: 100px;
+            height: 120px;
             margin-bottom: 10px;
             resize: none;
-            background-color: #fff8b3;
-            padding: 5px;
+            background-color: #fffb96;
+            padding: 10px;
+            border: 1px solid #e6d381;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #333;
         }
 
         #addNoteForm button,
         #editNoteForm button {
-            background-color: #4CAF50;
+            background-color: #1cc88a;
             color: white;
             padding: 10px;
             border: none;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.2s;
         }
 
         #addNoteForm button:hover,
         #editNoteForm button:hover {
-            background-color: #45a049;
-        }
-
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-        }
-
-        .alert-success {
-            color: #3c763d;
-            background-color: #dff0d8;
-            border-color: #d6e9c6;
-        }
-
-        .alert-danger {
-            color: #a94442;
-            background-color: #f2dede;
-            border-color: #ebccd1;
+            background-color: #17a673;
         }
 
         .char-count {
-            font-size: 12px;
+            font-size: 0.75rem;
             color: #888;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             text-align: right;
         }
     </style>
-    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 </head>
 
 <body>
-    <div class="nt-container" style="margin: 50px 0px;">
-        <div id="message"></div> <button class="add-note-btn" onclick="togglePopup('addNotePopup')">Añadir Nota Adhesiva</button>
-        <br>
+    <div class="nt-container">
+        <div id="message"></div> 
+        
+        <button class="add-note-btn" onclick="togglePopup('addNotePopup')">
+            <i class="fas fa-plus"></i> Añadir Nota Adhesiva
+        </button>
 
         <div class="popup" id="addNotePopup">
-            <span class="close-btn" onclick="togglePopup('addNotePopup')">X</span>
+            <div class="popup-header">
+                <h5>Nueva Nota Adhesiva</h5>
+                <span class="popup-close" onclick="togglePopup('addNotePopup')">×</span>
+            </div>
             <form id="addNoteForm" method="post">
                 <?php if (isset($_GET['id'])) : ?>
-                    <label for="cage_id">Para Jaula ID:
-                        <?= htmlspecialchars($_GET['id']); ?>
-                    </label>
+                    <label class="small text-muted mb-2">Para Jaula ID: <strong><?= htmlspecialchars($_GET['id']); ?></strong></label>
                     <input type="hidden" id="cage_id" name="cage_id" value="<?= htmlspecialchars($_GET['id']); ?>">
                 <?php endif; ?>
                 <textarea id="note_text" name="note_text" placeholder="Escribe tu nota adhesiva aquí..." maxlength="250" required></textarea>
                 <div class="char-count" id="charCount">250 caracteres restantes</div>
-                <button type="submit" name="add_note">Añadir Nota</button>
+                <button type="submit" name="add_note">Guardar Nota</button>
             </form>
         </div>
 
         <div class="popup edit-popup" id="editNotePopup">
-            <span class="close-btn" onclick="togglePopup('editNotePopup')">X</span>
+            <div class="popup-header">
+                <h5>Editar Nota Adhesiva</h5>
+                <span class="popup-close" onclick="togglePopup('editNotePopup')">×</span>
+            </div>
             <form id="editNoteForm" method="post">
                 <input type="hidden" id="edit_note_id" name="note_id">
                 <textarea id="edit_note_text" name="note_text" placeholder="Edita tu nota adhesiva aquí..." maxlength="250" required></textarea>
                 <div class="char-count" id="editCharCount">250 caracteres restantes</div>
-                <button type="submit" name="edit_note">Editar Nota</button>
+                <button type="submit" name="edit_note">Guardar Cambios</button>
             </form>
         </div>
 
@@ -261,19 +332,29 @@ $result = $stmt->get_result();
 
         <div class="sticky-notes-container">
             <?php while ($row = $result->fetch_assoc()) : ?>
-                <div class="sticky-note" id="note-<?= $row['id']; ?>">
+                <?php 
+                    // Alternamos entre 4 colores pasteles sutiles
+                    $claseColor = $coloresPostit[$contadorColores % count($coloresPostit)];
+                    $contadorColores++;
+                ?>
+                <div class="sticky-note <?= $claseColor; ?>" id="note-<?= $row['id']; ?>">
+                    
                     <?php if ($currentUserId == $row['user_id'] || (isset($_SESSION['role']) && $_SESSION['role'] === 'admin')) : ?>
-                        <span class="close-btn" onclick="removeNote(<?php echo $row['id']; ?>)">X</span>
-                        <span class="edit-btn" onclick='editNote(<?php echo $row['id']; ?>, <?php echo json_encode($row['note_text'], JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'>✎</span>
+                        <span class="edit-btn" onclick='editNote(<?php echo $row['id']; ?>, <?php echo json_encode($row['note_text'], JSON_HEX_APOS | JSON_HEX_QUOT); ?>)' title="Editar"><i class="fas fa-pen"></i></span>
+                        <span class="close-btn" onclick="removeNote(<?php echo $row['id']; ?>)" title="Eliminar">×</span>
                     <?php endif; ?>
-                    <span class="userid">
-                        <?php echo htmlspecialchars($row['user_name']); ?>
-                    </span>
-                    <p>
-                        <?php echo nl2br(htmlspecialchars($row['note_text'])); ?>
-                    </p>
+
+                    <div>
+                        <span class="userid">
+                            <i class="fas fa-user-circle me-1"></i> <?php echo htmlspecialchars($row['user_name']); ?>
+                        </span>
+                        <div class="note-content">
+                            <?php echo nl2br(htmlspecialchars($row['note_text'])); ?>
+                        </div>
+                    </div>
+
                     <span class="timestamp">
-                        <?php echo htmlspecialchars($row['created_at']); ?>
+                        <i class="far fa-calendar-alt me-1"></i> <?php echo date('d/m/Y H:i', strtotime($row['created_at'])); ?>
                     </span>
                 </div>
             <?php endwhile; ?>

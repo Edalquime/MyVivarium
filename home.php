@@ -23,7 +23,7 @@ if (!isset($_SESSION['name'])) {
 
 
 // --- LÓGICA DEL MONITOR DE SALAS DEL BIOTERIO ---
-date_default_timezone_set('America/Santiago');
+date_default_timezone_set('America/Santiago'); // Ajustado a tu zona horaria local
 $ahora = date('Y-m-d H:i:s');
 
 // Listado oficial de tus salas
@@ -163,6 +163,10 @@ require 'header.php';
             border-bottom: 1px solid #ebedf0 !important;
         }
 
+        .modern-card .card-body {
+            flex: 1; /* Estira el cuerpo para igualar la altura de las tarjetas vecinas */
+        }
+
         .summary-stat-box {
             border-radius: 12px;
             border: 1px solid #dadce0;
@@ -260,13 +264,38 @@ require 'header.php';
             </div>
 
             <div class="col-lg-5 col-md-12">
-                <div class="card modern-card h-100 justify-content-center bg-dark text-white p-4">
-                    <div class="text-center">
-                        <h4 class="fw-bold mb-3">Plataforma de Vivario</h4>
-                        <p class="mb-4">Gestiona las reservas de salas de experimentos, mantén un registro de tus jaulas de ratones y monitorea las tareas pendientes del equipo.</p>
-                        <div class="d-flex justify-content-center gap-2">
-                            <a href="hc_dash.php" class="btn btn-primary btn-sm px-3">Ir a Holding</a>
-                            <a href="bc_dash.php" class="btn btn-outline-light btn-sm px-3">Ir a Breeding</a>
+                <div class="card modern-card h-100">
+                    <div class="card-header modern-card-header bg-dark text-white p-3">
+                        <h5 class="mb-0 fs-6"><i class="fas fa-boxes me-2"></i> Resumen de Jaulas</h5>
+                    </div>
+                    <div class="card-body bg-light d-flex flex-column justify-content-around p-4">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <a href="hc_dash.php" class="stat-link">
+                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <span style="color: #5f6368; font-size: 0.9rem; font-weight: 500;">Mantenimiento (Holding)</span>
+                                            <h3 class="mb-0 mt-1" style="color: #3c4043; font-weight: 600;"><?php echo $holdingCount; ?></h3>
+                                        </div>
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                                            <i class="fas fa-layer-group"></i>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-12">
+                                <a href="bc_dash.php" class="stat-link">
+                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <span style="color: #5f6368; font-size: 0.9rem; font-weight: 500;">Reproducción (Breeding)</span>
+                                            <h3 class="mb-0 mt-1" style="color: #3c4043; font-weight: 600;"><?php echo $matingCount; ?></h3>
+                                        </div>
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                                            <i class="fas fa-venus-mars"></i>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -275,74 +304,42 @@ require 'header.php';
 
         <div class="row g-4 mb-5">
             
-            <div class="col-lg-4 col-md-6">
-                <div class="card modern-card h-100">
-                    <div class="card-header modern-card-header bg-dark text-white p-3">
-                        <h5 class="mb-0 fs-6"><i class="fas fa-boxes me-2"></i> Resumen de Jaulas</h5>
-                    </div>
-                    <div class="card-body bg-light d-flex flex-column justify-content-around p-3">
-                        <a href="hc_dash.php" class="stat-link">
-                            <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
-                                <div>
-                                    <span class="text-secondary small fw-bold">Holding (Mantenimiento)</span>
-                                    <h3 class="mb-0 mt-1 fw-bold text-dark"><?php echo $holdingCount; ?></h3>
-                                </div>
-                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
-                                    <i class="fas fa-layer-group"></i>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="bc_dash.php" class="stat-link">
-                            <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
-                                <div>
-                                    <span class="text-secondary small fw-bold">Breeding (Reproducción)</span>
-                                    <h3 class="mb-0 mt-1 fw-bold text-dark"><?php echo $matingCount; ?></h3>
-                                </div>
-                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
-                                    <i class="fas fa-venus-mars"></i>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-4 col-md-6">
+            <div class="col-lg-6 col-md-12">
                 <div class="card modern-card h-100">
                     <div class="card-header modern-card-header bg-dark text-white p-3">
                         <h5 class="mb-0 fs-6"><i class="fas fa-tasks me-2"></i> Resumen de tus Tareas</h5>
                     </div>
-                    <div class="card-body bg-light p-3 d-flex flex-column justify-content-around">
-                        <div class="row g-2">
-                            <div class="col-6">
+                    <div class="card-body bg-light p-4 d-flex flex-column justify-content-around">
+                        <div class="row g-3">
+                            <div class="col-sm-6">
                                 <a href="manage_tasks.php?filter=assigned_to_me" class="stat-link">
                                     <div class="summary-stat-box p-3 text-center">
-                                        <span class="text-secondary small">Totales</span>
-                                        <h4 class="mb-0 mt-1 fw-bold text-info"><?php echo $totalTasks; ?></h4>
+                                        <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Tareas Totales</span>
+                                        <h4 class="mb-0 mt-2" style="color: #17a2b8; font-weight: 600;"><?php echo $totalTasks; ?></h4>
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-6">
+                            <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=completed&filter=assigned_to_me" class="stat-link">
                                     <div class="summary-stat-box p-3 text-center">
-                                        <span class="text-secondary small">Completadas</span>
-                                        <h4 class="mb-0 mt-1 fw-bold text-success"><?php echo $completedTasks; ?></h4>
+                                        <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Completadas</span>
+                                        <h4 class="mb-0 mt-2" style="color: #28a745; font-weight: 600;"><?php echo $completedTasks; ?></h4>
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-6">
+                            <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=in+progress&filter=assigned_to_me" class="stat-link">
                                     <div class="summary-stat-box p-3 text-center">
-                                        <span class="text-secondary small">En Progreso</span>
-                                        <h4 class="mb-0 mt-1 fw-bold text-warning"><?php echo $inProgressTasks; ?></h4>
+                                        <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">En Progreso</span>
+                                        <h4 class="mb-0 mt-2" style="color: #ffc107; font-weight: 600;"><?php echo $inProgressTasks; ?></h4>
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-6">
+                            <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=pending&filter=assigned_to_me" class="stat-link">
                                     <div class="summary-stat-box p-3 text-center">
-                                        <span class="text-secondary small">Pendientes</span>
-                                        <h4 class="mb-0 mt-1 fw-bold text-danger"><?php echo $pendingTasks; ?></h4>
+                                        <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Pendientes</span>
+                                        <h4 class="mb-0 mt-2" style="color: #dc3545; font-weight: 600;"><?php echo $pendingTasks; ?></h4>
                                     </div>
                                 </a>
                             </div>
@@ -351,15 +348,12 @@ require 'header.php';
                 </div>
             </div>
 
-            <div class="col-lg-4 col-md-12">
+            <div class="col-lg-6 col-md-12">
                 <div class="card modern-card h-100">
-                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 fs-6"><i class="fas fa-sticky-note me-2"></i> Notas Generales</h5>
-                        <button type="button" class="btn btn-primary btn-sm d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#noteModal" title="Añadir nueva nota">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                    <div class="card-header modern-card-header bg-dark text-white p-3">
+                        <h5 class="mb-0 fs-6"><i class="fas fa-sticky-note me-2"></i> <?php echo htmlspecialchars($labName); ?> - Notas Generales</h5>
                     </div>
-                    <div class="card-body bg-light p-3 d-flex flex-column h-100">
+                    <div class="card-body bg-light p-4 d-flex flex-column h-100">
                         <div class="bg-white p-3 rounded border flex-grow-1 overflow-auto" style="max-height: 250px;">
                             <?php include 'nt_app.php'; ?>
                         </div>

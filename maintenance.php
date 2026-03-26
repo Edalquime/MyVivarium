@@ -1,203 +1,126 @@
 <?php
 
 /**
- * Maintenance Management Script
- * 
- * This script handles the addition of maintenance records, allowing for the selection of cages and optional comments.
+ * Página de Mantenimiento / Historial
+ * * Este archivo muestra el panel de mantenimiento, tareas o historial.
+ * Adaptado a la plantilla unificada con Bootstrap 5 para que los menús no se rompan.
  */
 
-// Start a new session or resume the existing session
-session_start();
+// Iniciar o reanudar la sesión
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Include the database connection file
+// Incluir la conexión a la base de datos
 require 'dbcon.php';
 
-// Disable error display in production (errors logged to server logs)
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
+// Verificar si el usuario ha iniciado sesión
 if (!isset($_SESSION['username'])) {
-    $currentUrl = urlencode($_SERVER['REQUEST_URI']);
-    header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    header("Location: index.php");
+    exit;
 }
 
-// Generate a CSRF token if it doesn't exist
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Capture the 'from' query parameter for redirection purposes
-$redirectFrom = isset($_GET['from']) ? $_GET['from'] : 'hc_dash';
-$_SESSION['redirect_from'] = $redirectFrom;
-
-// Query to retrieve cage IDs
-$cageQuery = "SELECT cage_id FROM cages";
-$cageResult = $con->query($cageQuery);
-
-// Initialize an array to hold all cage options
-$cageOptions = [];
-while ($cageRow = $cageResult->fetch_assoc()) {
-    $cageOptions[] = htmlspecialchars($cageRow['cage_id']);
-}
-
-// Process the form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // Validate CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die('CSRF token validation failed');
-    }
-
-    // Retrieve and sanitize form data
-    $selectedCages = $_POST['cage_id'];
-    $comments = $_POST['comments'];
-    $userId = $_SESSION['user_id']; // Assume user session is started and user_id is stored in session
-
-    $stmt = $con->prepare("INSERT INTO maintenance (cage_id, user_id, comments) VALUES (?, ?, ?)");
-
-    foreach ($selectedCages as $index => $cage_id) {
-        $comment = !empty($comments[$index]) ? $comments[$index] : null;
-        $stmt->bind_param("sis", $cage_id, $userId, $comment);
-        $stmt->execute();
-    }
-
-    // Set success message and redirect based on the originating page
-    $_SESSION['message'] = 'Maintenance records added successfully.';
-    $redirectUrl = $redirectFrom === 'bc_dash' ? 'bc_dash.php' : 'hc_dash.php';
-    header("Location: $redirectUrl");
-    exit();
-}
-
-// Include the header file
+// Incluir el archivo de cabecera maestro
 require 'header.php';
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cage Maintenance</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mantenimiento e Historial | <?php echo htmlspecialchars($labName); ?></title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        .container {
-            max-width: 800px;
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER AL FONDO --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
         }
 
-        .form-label {
-            font-weight: bold;
-        }
-
-        .btn-primary {
-            margin-right: 10px;
-        }
-
-        .card-header {
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Poppins', sans-serif;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+        /* ----------------------------------------------------- */
+
+        .main-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+            background-color: #ffffff;
+        }
+
+        .section-card {
+            background-color: #ffffff;
+            border: 1px solid #e3e6f0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.03);
+        }
+
+        .section-title {
+            color: #4e73df;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1.25rem;
+            display: flex;
             align-items: center;
-        }
-
-        .action-buttons {
-            display: flex;
-        }
-
-        .mb-3 {
-            margin-bottom: 1rem;
-        }
-
-        .form-control {
-            margin-bottom: 1rem;
-        }
-
-        .action-icons a {
-            margin-right: 10px;
-            margin-bottom: 10px;
+            gap: 10px;
+            border-bottom: 2px solid #eaecf4;
+            padding-bottom: 8px;
         }
     </style>
 </head>
 
 <body>
+    <div class="page-content">
+        <div class="container mt-4 mb-5" style="max-width: 1000px;">
+            
+            <div class="card main-card">
+                <div class="card-header bg-dark text-white p-3 d-flex align-items-center" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                    <h4 class="mb-0 fs-5"><i class="fas fa-tools me-2"></i> Panel de Mantenimiento</h4>
+                </div>
 
-    <div class="container content mt-4">
-
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h4>Add Cage Maintenance Record</h4>
-                        <div class="action-buttons">
-                            <!-- Button to go back to the previous page -->
-                            <a href="javascript:void(0);" onclick="goBack()" class="btn btn-primary btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Go Back">
-                                <i class="fas fa-arrow-circle-left"></i>
-                            </a>
-                            <!-- Button to save the form -->
-                            <a href="javascript:void(0);" onclick="document.getElementById('editForm').submit();" class="btn btn-success btn-sm btn-icon" data-toggle="tooltip" data-placement="top" title="Save">
-                                <i class="fas fa-save"></i>
-                            </a>
+                <div class="card-body bg-light p-4">
+                    <div class="section-card mb-0">
+                        <div class="section-title">
+                            <i class="fas fa-list-alt"></i> Registros de Mantenimiento e Historial
                         </div>
-                    </div>
-
-                    <div class="card-body">
-                        <form method="post">
-                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                            <div class="mb-3">
-                                <label for="cage_id" class="form-label">Select Cages (multi select)</label>
-                                <select id="cage_id" name="cage_id[]" multiple="multiple" style="width: 100%;" required>
-                                    <?php foreach ($cageOptions as $cage_id) : ?>
-                                        <option value="<?php echo $cage_id; ?>"><?php echo $cage_id; ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div id="comments-section"></div>
-                            <button type="submit" class="btn btn-primary">Submit</button>
-                        </form>
+                        
+                        <p class="text-muted">Desarrolla aquí el historial de mantenimiento originado desde <?php echo isset($_GET['from']) ? htmlspecialchars($_GET['from']) : 'el panel'; ?>...</p>
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <script>
-        function goBack() {
-            window.history.back();
-        }
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
 
-        $(document).ready(function() {
-            $('#cage_id').select2();
-
-            $('#cage_id').on('change', function() {
-                let selectedCages = $(this).val();
-                let commentsSection = $('#comments-section');
-                commentsSection.empty();
-
-                if (selectedCages.length > 0) {
-                    selectedCages.forEach(function(cage_id, index) {
-                        commentsSection.append(`
-                            <div class="mb-3">
-                                <label for="comments[${index}]" class="form-label">Comment for ${cage_id}:</label>
-                                <textarea name="comments[]" class="form-control" placeholder="Optional comment"></textarea>
-                                <input type="hidden" name="cage_id_hidden[]" value="${cage_id}">
-                            </div>
-                        `);
-                    });
-                }
-            });
-        });
-    </script>
-
-    <?php include 'footer.php'; ?> <!-- Include footer file -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
+<?php mysqli_close($con); ?>

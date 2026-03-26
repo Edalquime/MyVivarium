@@ -3,6 +3,7 @@
 /**
  * Add New Breeding Cage Script
  * Interfaz moderna en Español con Fecha de Emparejamiento obligatoria.
+ * Genera tareas automáticas de destete al registrar nacimientos.
  */
 
 session_start();
@@ -43,7 +44,6 @@ while ($strainrow = $strainResult->fetch_assoc()) {
     $strainOptions[] = "$str_id | $str_name";
 
     if (!empty($str_aka)) {
-        // Separamos por comas en caso de haber múltiples alias
         $akaNames = explode(', ', $str_aka);
         foreach ($akaNames as $aka) {
             $strainOptions[] = "$str_id | " . htmlspecialchars(trim($aka));
@@ -51,7 +51,6 @@ while ($strainrow = $strainResult->fetch_assoc()) {
     }
 }
 
-// Ordenar todas las opciones combinadas alfabéticamente
 sort($strainOptions, SORT_STRING);
 // -------------------------------------------------------------
 
@@ -115,6 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert_cage_user_query->close();
             }
 
+            // ---------------------------------------------------------------------------------
+            // COORDINACIÓN DE TAREAS AUTOMÁTICAS AL REGISTRAR NUEVOS NACIMIENTOS
+            // ---------------------------------------------------------------------------------
             if (isset($_POST['litter_dob'])) {
                 $litter_dob = $_POST['litter_dob'];
                 
@@ -126,12 +128,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $litter_remarks = $_POST['remarks_litter'] ?? [];
 
                 for ($i = 0; $i < count($litter_dob); $i++) {
-                    $insert_litter_query = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $insert_litter_query->bind_param("sssssss", $cage_id, $litter_dob[$i], $pups_alive[$i], $pups_dead[$i], $pups_male[$i], $pups_female[$i], $litter_remarks[$i]);
-                    $insert_litter_query->execute();
-                    $insert_litter_query->close();
+                    if (!empty($litter_dob[$i])) {
+                        // 1. Guardar la Camada
+                        $insert_litter_query = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $insert_litter_query->bind_param("sssssss", $cage_id, $litter_dob[$i], $pups_alive[$i], $pups_dead[$i], $pups_male[$i], $pups_female[$i], $litter_remarks[$i]);
+                        $insert_litter_query->execute();
+                        $insert_litter_query->close();
+
+                        // 2. Calcular Fechas de Destete
+                        $date21 = date('Y-m-d', strtotime($litter_dob[$i] . ' +21 days'));
+                        $date30 = date('Y-m-d', strtotime($litter_dob[$i] . ' +30 days'));
+
+                        // Preparar tarea
+                        $taskQuery = $con->prepare("INSERT INTO tasks (title, description, assigned_by, assigned_to, status, completion_date, cage_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $taskBy = $_SESSION['user_id'];
+                        $taskStatus = 'Pending';
+
+                        // 3. Crear tarea para cada usuario asignado a la jaula
+                        foreach ($user_ids as $userId) {
+                            // Tarea Destete 21 días
+                            $title21 = "🍼 Destete de 21 días - Jaula Cruce: $cage_id";
+                            $desc21 = "Registro de nacimiento el {$litter_dob[$i]}. Por favor evaluar y proceder con el destete.";
+                            $taskQuery->bind_param("sssisss", $title21, $desc21, $taskBy, $userId, $taskStatus, $date21, $cage_id);
+                            $taskQuery->execute();
+
+                            // Tarea Destete 30 días
+                            $title30 = "🚨 Destete LÍMITE de 30 días - Jaula Cruce: $cage_id";
+                            $desc30 = "Registro de nacimiento el {$litter_dob[$i]}. Las crías deben destetarse inmediatamente.";
+                            $taskQuery->bind_param("sssisss", $title30, $desc30, $taskBy, $userId, $taskStatus, $date30, $cage_id);
+                            $taskQuery->execute();
+                        }
+                        $taskQuery->close();
+                    }
                 }
             }
+            // ---------------------------------------------------------------------------------
         } else {
             $_SESSION['message'] = "Error al agregar la nueva jaula de cruce.";
         }

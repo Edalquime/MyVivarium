@@ -2,7 +2,7 @@
 
 /**
  * Script para Editar Jaulas de Cruce
- * Interfaz modernizada en Español, con Cepa obligatoria y Fecha de Cruce.
+ * Interfaz modernizada en Español, con Cepa obligatoria y Fecha de Cruce. Se autogeneran tareas de destete al guardar nacimientos.
  */
 
 session_start();
@@ -219,6 +219,62 @@ if (isset($_GET['id'])) {
                     }
                 }
 
+                // ---------------------------------------------------------------------------------
+                // AUTOMATIZACIÓN DE TAREAS CUANDO SE AGREGA/EDITA UN NACIMIENTO (LITTERS)
+                // ---------------------------------------------------------------------------------
+                if (isset($_POST['litter_dob'])) {
+                    for ($i = 0; $i < count($_POST['litter_dob']); $i++) {
+                        $litter_dob_i = mysqli_real_escape_string($con, $_POST['litter_dob'][$i]);
+                        $pups_alive_i = !empty($_POST['pups_alive'][$i]) ? intval($_POST['pups_alive'][$i]) : 0;
+                        $pups_dead_i = !empty($_POST['pups_dead'][$i]) ? intval($_POST['pups_dead'][$i]) : 0;
+                        $pups_male_i = !empty($_POST['pups_male'][$i]) ? intval($_POST['pups_male'][$i]) : 0;
+                        $pups_female_i = !empty($_POST['pups_female'][$i]) ? intval($_POST['pups_female'][$i]) : 0;
+                        $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
+                        $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
+
+                        $isNewLitter = empty($litter_id_i);
+
+                        if (!$isNewLitter) {
+                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
+                            $updateLitterQuery->bind_param("sssssss", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
+                            $updateLitterQuery->execute();
+                            $updateLitterQuery->close();
+                        } else {
+                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
+                            $insertLitterQuery->execute();
+                            $insertLitterQuery->close();
+                        }
+
+                        // SOLO si es una camada nueva Y la fecha de nacimiento no está vacía: creamos las tareas de Destete de 21 y 30 días
+                        if ($isNewLitter && !empty($litter_dob_i)) {
+                            
+                            $date21 = date('Y-m-d', strtotime($litter_dob_i . ' +21 days'));
+                            $date30 = date('Y-m-d', strtotime($litter_dob_i . ' +30 days'));
+
+                            $taskQuery = $con->prepare("INSERT INTO tasks (title, description, assigned_by, assigned_to, status, completion_date, cage_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $taskBy = $_SESSION['user_id'];
+                            $taskStatus = 'Pending';
+
+                            foreach ($users as $userId) {
+                                // Tarea 1: 21 Días
+                                $title21 = "🍼 Destete de 21 días - Jaula: $cage_id";
+                                $desc21 = "Nacimiento registrado el $litter_dob_i. Por favor evaluar destete de crías.";
+                                $taskQuery->bind_param("sssisss", $title21, $desc21, $taskBy, $userId, $taskStatus, $date21, $cage_id);
+                                $taskQuery->execute();
+
+                                // Tarea 2: 30 Días
+                                $title30 = "🚨 Destete LÍMITE de 30 días - Jaula: $cage_id";
+                                $desc30 = "Nacimiento registrado el $litter_dob_i. Las crías deben destetarse a la brevedad.";
+                                $taskQuery->bind_param("sssisss", $title30, $desc30, $taskBy, $userId, $taskStatus, $date30, $cage_id);
+                                $taskQuery->execute();
+                            }
+                            $taskQuery->close();
+                        }
+                    }
+                }
+                // ---------------------------------------------------------------------------------
+
                 $con->commit();
                 $_SESSION['message'] = 'Registro de jaula actualizado exitosamente.';
             } catch (Exception $e) {
@@ -255,33 +311,6 @@ if (isset($_GET['id'])) {
                                 $_SESSION['message'] .= " Archivo subido con éxito.";
                             }
                         }
-                    }
-                }
-            }
-
-            $litter_dob = isset($_POST['litter_dob']) ? $_POST['litter_dob'] : [];
-            $delete_litter_ids = isset($_POST['delete_litter_ids']) ? $_POST['delete_litter_ids'] : [];
-
-            if (isset($_POST['litter_dob'])) {
-                for ($i = 0; $i < count($_POST['litter_dob']); $i++) {
-                    $litter_dob_i = mysqli_real_escape_string($con, $_POST['litter_dob'][$i]);
-                    $pups_alive_i = !empty($_POST['pups_alive'][$i]) ? intval($_POST['pups_alive'][$i]) : 0;
-                    $pups_dead_i = !empty($_POST['pups_dead'][$i]) ? intval($_POST['pups_dead'][$i]) : 0;
-                    $pups_male_i = !empty($_POST['pups_male'][$i]) ? intval($_POST['pups_male'][$i]) : 0;
-                    $pups_female_i = !empty($_POST['pups_female'][$i]) ? intval($_POST['pups_female'][$i]) : 0;
-                    $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
-                    $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
-
-                    if (!empty($litter_id_i)) {
-                        $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
-                        $updateLitterQuery->bind_param("sssssss", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
-                        $updateLitterQuery->execute();
-                        $updateLitterQuery->close();
-                    } else {
-                        $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
-                        $insertLitterQuery->execute();
-                        $insertLitterQuery->close();
                     }
                 }
             }

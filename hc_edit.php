@@ -38,7 +38,7 @@ $userQuery = "SELECT id, initials, name FROM users WHERE status = 'approved'";
 $userResult = $con->query($userQuery);
 
 // Consulta para recuperar opciones donde el rol es 'Investigador Principal' (PI)
-$piQuery = "SELECT id, initials, name FROM users WHERE position = 'Investigador Principal' AND status = 'approved'";
+$piQuery = "SELECT id, initials, name FROM users WHERE position = 'Principal Investigator' AND status = 'approved'";
 $piResult = $con->query($piQuery);
 
 // Consulta para recuperar valores de IACUC
@@ -547,7 +547,7 @@ require 'header.php';
 
                             <div id="mouse_fields_container">
                                 <?php foreach ($mice as $index => $mouse) : ?>
-                                    <div class="mb-3 border p-3 rounded" id="mouse_fields_<?= $index + 1; ?>">
+                                    <div class="mb-3 border p-3 rounded mouse-field" id="mouse_fields_<?= $index + 1; ?>">
                                         <h6>Ratón #<?= $index + 1; ?></h6>
                                         <input type="hidden" name="existing_mouse_id[]" value="<?= $mouse['id']; ?>">
                                         <div class="row">
@@ -560,8 +560,8 @@ require 'header.php';
                                                 <input type="text" class="form-control" name="genotype[]" value="<?= htmlspecialchars($mouse['genotype']); ?>">
                                             </div>
                                             <div class="col-md-4 mb-2">
-                                                <label class="form-label">Notas</label>
-                                                <input type="text" class="form-control" name="notes[]" value="<?= htmlspecialchars($mouse['notes']); ?>">
+                                                <label class="form-label">Notas de Mantenimiento</label>
+                                                <textarea class="form-control" name="notes[]" oninput="adjustTextareaHeight(this)"><?= htmlspecialchars($mouse['notes']); ?></textarea>
                                             </div>
                                             <div class="col-md-12 text-end">
                                                 <button type="button" class="btn btn-danger btn-sm" onclick="markMouseForDeletion(<?= $mouse['id']; ?>, <?= $index + 1; ?>)">
@@ -582,11 +582,11 @@ require 'header.php';
 
                         <div class="section-card">
                             <div class="section-title">
-                                <i class="fas fa-clipboard-list"></i> Historial de Mantenimiento
+                                <i class="fas fa-clipboard-list"></i> Historial de Mantenimiento de la Jaula
                             </div>
 
                             <?php
-                            $maintenanceQuery = "SELECT * FROM maintenance WHERE cage_id = ? ORDER BY date DESC";
+                            $maintenanceQuery = "SELECT * FROM maintenance WHERE cage_id = ? ORDER BY timestamp DESC";
                             $stmtMaint = $con->prepare($maintenanceQuery);
                             $stmtMaint->bind_param("s", $id);
                             $stmtMaint->execute();
@@ -598,18 +598,18 @@ require 'header.php';
                                     <table class="table table-hover table-bordered mb-0 align-middle">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>Fecha</th>
-                                                <th>Comentarios</th>
-                                                <th class="text-center">Acción</th>
+                                                <th style="width: 25%;">Fecha</th>
+                                                <th style="width: 65%;">Comentarios</th>
+                                                <th style="width: 10%;" class="text-center">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php while ($log = $maintenanceLogs->fetch_assoc()) : ?>
                                                 <tr id="log_row_<?= $log['id']; ?>">
-                                                    <td><?= htmlspecialchars($log['date']); ?></td>
+                                                    <td><?= htmlspecialchars($log['timestamp']); ?></td>
                                                     <td>
                                                         <input type="hidden" name="log_ids[]" value="<?= $log['id']; ?>">
-                                                        <input type="text" class="form-control" name="log_comments[]" value="<?= htmlspecialchars($log['comments']); ?>">
+                                                        <textarea class="form-control" name="log_comments[]" oninput="adjustTextareaHeight(this)"><?= htmlspecialchars($log['comments']); ?></textarea>
                                                     </td>
                                                     <td class="text-center">
                                                         <button type="button" class="btn btn-danger btn-sm btn-icon" onclick="markLogForDeletion(<?= $log['id']; ?>)">
@@ -683,11 +683,17 @@ require 'header.php';
             window.location.href = 'hc_dash.php?page=' + page + '&search=' + encodeURIComponent(search);
         }
 
+        // Auto-ajustar altura de textareas
+        function adjustTextareaHeight(element) {
+            element.style.height = "auto";
+            element.style.height = (element.scrollHeight) + "px";
+        }
+
         function addMouseField() {
             const mouseContainer = document.getElementById('mouse_fields_container');
-            const mouseCount = mouseContainer.childElementCount + 1;
+            const mouseCount = mouseContainer.querySelectorAll('.mouse-field').length + 1;
             const mouseFieldHTML = `
-                <div id="mouse_fields_${mouseCount}" class="mb-3 border p-3 rounded">
+                <div id="mouse_fields_${mouseCount}" class="mb-3 border p-3 rounded mouse-field">
                     <h6>Ratón #${mouseCount}</h6>
                     <div class="row">
                         <div class="col-md-4 mb-2">
@@ -699,8 +705,8 @@ require 'header.php';
                             <input type="text" class="form-control" name="genotype[]" value="">
                         </div>
                         <div class="col-md-4 mb-2">
-                            <label class="form-label">Notas</label>
-                            <input type="text" class="form-control" name="notes[]" value="">
+                            <label class="form-label">Notas de Mantenimiento</label>
+                            <textarea class="form-control" name="notes[]" oninput="adjustTextareaHeight(this)"></textarea>
                         </div>
                     </div>
                 </div>`;
@@ -711,7 +717,7 @@ require 'header.php';
             if (confirm('¿Estás seguro de eliminar este registro de ratón?')) {
                 const deleteField = document.getElementById('mice_to_delete');
                 deleteField.value += (deleteField.value ? ',' : '') + mouseId;
-                document.getElementById('mouse_fields_' + elementId).remove();
+                document.getElementById('mouse_fields_' + elementId).style.display = 'none';
             }
         }
 
@@ -719,7 +725,7 @@ require 'header.php';
             if (confirm('¿Estás seguro de eliminar este registro de mantenimiento?')) {
                 const logsField = document.getElementById('logs_to_delete');
                 logsField.value += (logsField.value ? ',' : '') + logId;
-                document.getElementById('log_row_' + logId).remove();
+                document.getElementById('log_row_' + logId).style.display = 'none';
             }
         }
 
@@ -727,6 +733,10 @@ require 'header.php';
             $('#user').select2({ placeholder: "Seleccionar Usuario(s)", allowClear: true });
             $('#strain').select2({ placeholder: "Seleccionar Cepa", allowClear: true });
             $('#iacuc').select2({ placeholder: "Seleccionar IACUC", allowClear: true });
+
+            // Set max date to today para las fechas
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll('input[type="date"]').forEach(el => el.setAttribute('max', today));
         });
     </script>
 </body>

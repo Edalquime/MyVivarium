@@ -8,7 +8,9 @@
  * */
 
 // Iniciar una nueva sesión o reanudar la existente
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
@@ -130,10 +132,9 @@ require 'header.php';
             padding: 0;
             height: 100%;
             width: 100%;
-            background-color: #f8f9fa;
+            background-color: #f4f6f9;
         }
 
-        /* Se aumentó el max-width para que abarque toda la pantalla de forma fluida */
         .main-content {
             max-width: 1400px; 
             margin: 0 auto;
@@ -152,7 +153,6 @@ require 'header.php';
             border: none !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
             background-color: #fff;
-            height: 100%; /* Las tarjetas llenarán el alto de sus columnas */
             display: flex;
             flex-direction: column;
         }
@@ -161,10 +161,6 @@ require 'header.php';
             border-top-left-radius: 12px !important;
             border-top-right-radius: 12px !important;
             border-bottom: 1px solid #ebedf0 !important;
-        }
-
-        .modern-card .card-body {
-            flex: 1; /* Estira el cuerpo de la tarjeta para que se alinee con las vecinas */
         }
 
         .summary-stat-box {
@@ -194,9 +190,7 @@ require 'header.php';
         <div class="alert alert-danger alert-dismissible fade show modern-card mb-4" role="alert">
             <strong><i class="fas fa-exclamation-triangle"></i> Advertencia de Seguridad:</strong> Estás utilizando la cuenta de administrador por defecto.
             Por razones de seguridad, crea un nuevo usuario administrador y elimina esta cuenta por defecto inmediatamente.
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         <?php endif; ?>
 
@@ -211,8 +205,8 @@ require 'header.php';
         <div class="row g-4 mb-4">
             
             <div class="col-lg-7 col-md-12">
-                <div class="card modern-card">
-                    <div class="card-header modern-card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <div class="card modern-card h-100">
+                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
                         <h5 class="mb-0" style="font-size: 1rem;"><i class="fas fa-door-open me-2"></i> Estado de Salas en Tiempo Real</h5>
                         <a href="booking.php" class="btn btn-sm btn-light" style="border-radius: 20px; font-weight: 500; font-size: 0.8rem;">
                             Ver Calendario
@@ -232,21 +226,19 @@ require 'header.php';
                                     <?php foreach ($estados_salas as $nombre_sala => $data): ?>
                                         <tr>
                                             <?php 
-    // Generamos un ID amigable para la URL (sin espacios ni mayúsculas)
-    // "Sala 1" -> "sala1", "Sala de Cuarentena" -> "cuarentena", etc.
-    $id_url = 'sala1';
-    if ($nombre_sala === 'Sala 4') $id_url = 'sala4';
-    if ($nombre_sala === 'Sala 5') $id_url = 'sala5';
-    if ($nombre_sala === 'Sala de Cuarentena') $id_url = 'cuarentena';
-    if ($nombre_sala === 'Sala de Procedimientos') $id_url = 'procedimientos';
-    if ($nombre_sala === 'Sala de Conducta') $id_url = 'conducta';
-    if ($nombre_sala === 'Sala CFC/RotaRod') $id_url = 'cfcrotarod';
-?>
-<td style="font-weight: 600;">
-    <a href="booking.php?sala=<?php echo $id_url; ?>" class="text-decoration-none" style="color: #212529; display: block;">
-        <?php echo $nombre_sala; ?>
-    </a>
-</td>
+                                                $id_url = 'sala1';
+                                                if ($nombre_sala === 'Sala 4') $id_url = 'sala4';
+                                                if ($nombre_sala === 'Sala 5') $id_url = 'sala5';
+                                                if ($nombre_sala === 'Sala de Cuarentena') $id_url = 'cuarentena';
+                                                if ($nombre_sala === 'Sala de Procedimientos') $id_url = 'procedimientos';
+                                                if ($nombre_sala === 'Sala de Conducta') $id_url = 'conducta';
+                                                if ($nombre_sala === 'Sala CFC/RotaRod') $id_url = 'cfcrotarod';
+                                            ?>
+                                            <td style="font-weight: 600;">
+                                                <a href="booking.php?sala=<?php echo $id_url; ?>" class="text-decoration-none" style="color: #212529; display: block;">
+                                                    <?php echo $nombre_sala; ?>
+                                                </a>
+                                            </td>
                                             <td class="text-center">
                                                 <?php if ($data['ocupada']): ?>
                                                     <span class="badge bg-danger" style="border-radius: 12px; padding: 6px 12px;">🔴 Ocupada</span>
@@ -267,15 +259,31 @@ require 'header.php';
             </div>
 
             <div class="col-lg-5 col-md-12">
-                <div class="card modern-card">
-                    <div class="card-header modern-card-header bg-dark text-white">
-                        <h5 class="mb-0" style="font-size: 1rem;"><i class="fas fa-boxes me-2"></i> Resumen de Jaulas</h5>
+                <div class="card modern-card h-100 justify-content-center bg-dark text-white p-4">
+                    <div class="text-center">
+                        <h4 class="fw-bold mb-3">Plataforma de Vivario</h4>
+                        <p class="mb-4">Gestiona las reservas de salas de experimentos, mantén un registro de tus jaulas de ratones y monitorea las tareas pendientes del equipo.</p>
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="hc_dash.php" class="btn btn-primary btn-sm px-3">Ir a Holding</a>
+                            <a href="bc_dash.php" class="btn btn-outline-light btn-sm px-3">Ir a Breeding</a>
+                        </div>
                     </div>
-                    <div class="card-body d-flex flex-column justify-content-center p-4">
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            
+            <div class="col-lg-4 col-md-6">
+                <div class="card modern-card h-100">
+                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex align-items-center">
+                        <h5 class="mb-0 fs-6"><i class="fas fa-boxes me-2"></i> Resumen de Jaulas</h5>
+                    </div>
+                    <div class="card-body bg-light d-flex flex-column justify-content-center p-4">
                         <div class="row g-3">
                             <div class="col-12">
                                 <a href="hc_dash.php" class="stat-link">
-                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
+                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between bg-white">
                                         <div>
                                             <span style="color: #5f6368; font-size: 0.9rem; font-weight: 500;">Mantenimiento (Holding)</span>
                                             <h3 class="mb-0 mt-1" style="color: #3c4043; font-weight: 600;"><?php echo $holdingCount; ?></h3>
@@ -288,7 +296,7 @@ require 'header.php';
                             </div>
                             <div class="col-12">
                                 <a href="bc_dash.php" class="stat-link">
-                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between">
+                                    <div class="summary-stat-box p-3 d-flex align-items-center justify-content-between bg-white">
                                         <div>
                                             <span style="color: #5f6368; font-size: 0.9rem; font-weight: 500;">Reproducción (Breeding)</span>
                                             <h3 class="mb-0 mt-1" style="color: #3c4043; font-weight: 600;"><?php echo $matingCount; ?></h3>
@@ -303,20 +311,17 @@ require 'header.php';
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="row g-4">
-            
-            <div class="col-lg-6 col-md-12">
-                <div class="card modern-card">
-                    <div class="card-header modern-card-header bg-dark text-white">
-                        <h5 class="mb-0" style="font-size: 1rem;"><i class="fas fa-tasks me-2"></i> Resumen de tus Tareas</h5>
+            <div class="col-lg-4 col-md-6">
+                <div class="card modern-card h-100">
+                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex align-items-center">
+                        <h5 class="mb-0 fs-6"><i class="fas fa-tasks me-2"></i> Resumen de tus Tareas</h5>
                     </div>
-                    <div class="card-body p-4 d-flex flex-column justify-content-center">
+                    <div class="card-body bg-light p-4 d-flex flex-column justify-content-center">
                         <div class="row g-3">
                             <div class="col-sm-6">
                                 <a href="manage_tasks.php?filter=assigned_to_me" class="stat-link">
-                                    <div class="summary-stat-box p-3 text-center">
+                                    <div class="summary-stat-box p-3 text-center bg-white">
                                         <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Tareas Totales</span>
                                         <h4 class="mb-0 mt-2" style="color: #17a2b8; font-weight: 600;"><?php echo $totalTasks; ?></h4>
                                     </div>
@@ -324,7 +329,7 @@ require 'header.php';
                             </div>
                             <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=completed&filter=assigned_to_me" class="stat-link">
-                                    <div class="summary-stat-box p-3 text-center">
+                                    <div class="summary-stat-box p-3 text-center bg-white">
                                         <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Completadas</span>
                                         <h4 class="mb-0 mt-2" style="color: #28a745; font-weight: 600;"><?php echo $completedTasks; ?></h4>
                                     </div>
@@ -332,7 +337,7 @@ require 'header.php';
                             </div>
                             <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=in+progress&filter=assigned_to_me" class="stat-link">
-                                    <div class="summary-stat-box p-3 text-center">
+                                    <div class="summary-stat-box p-3 text-center bg-white">
                                         <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">En Progreso</span>
                                         <h4 class="mb-0 mt-2" style="color: #ffc107; font-weight: 600;"><?php echo $inProgressTasks; ?></h4>
                                     </div>
@@ -340,7 +345,7 @@ require 'header.php';
                             </div>
                             <div class="col-sm-6">
                                 <a href="manage_tasks.php?search=pending&filter=assigned_to_me" class="stat-link">
-                                    <div class="summary-stat-box p-3 text-center">
+                                    <div class="summary-stat-box p-3 text-center bg-white">
                                         <span style="font-size: 0.85rem; color: #5f6368; font-weight: 500;">Pendientes</span>
                                         <h4 class="mb-0 mt-2" style="color: #dc3545; font-weight: 600;"><?php echo $pendingTasks; ?></h4>
                                     </div>
@@ -351,20 +356,27 @@ require 'header.php';
                 </div>
             </div>
 
-            <div class="col-lg-6 col-md-12">
-                <div class="card modern-card">
-                    <div class="card-header modern-card-header bg-dark text-white">
-                        <h5 class="mb-0" style="font-size: 1rem;"><i class="fas fa-sticky-note me-2"></i> <?php echo htmlspecialchars($labName); ?> - Notas Generales</h5>
+            <div class="col-lg-4 col-md-12">
+                <div class="card modern-card h-100">
+                    <div class="card-header modern-card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fs-6"><i class="fas fa-sticky-note me-2"></i> Notas Generales</h5>
+                        <button type="button" class="btn btn-primary btn-sm d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; border-radius: 8px;" data-bs-toggle="modal" data-bs-target="#noteModal" title="Añadir nueva nota">
+                            <i class="fas fa-plus"></i>
+                        </button>
                     </div>
-                    <div class="card-body p-4">
-                        <?php include 'nt_app.php'; ?>
+                    <div class="card-body bg-light p-4 d-flex flex-column">
+                        <div class="bg-white p-3 rounded border flex-grow-1 overflow-auto" style="max-height: 250px;">
+                            <?php include 'nt_app.php'; ?>
+                        </div>
                     </div>
                 </div>
             </div>
 
         </div>
 
-    </div> <?php include 'footer.php'; ?>
+    </div> 
+
+    <?php include 'footer.php'; ?>
 
     <script>
         function adjustFooter() {

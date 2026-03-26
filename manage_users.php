@@ -1,44 +1,42 @@
 <?php
 
 /**
- * User Management Page
- * 
- * This script provides functionality for an admin to manage users, including approving, setting to pending, deleting users,
- * and changing user roles. It also includes CSRF protection and session security enhancements.
- * 
- */
+ * Página de Gestión de Usuarios
+ * * Este script proporciona funcionalidad para que un administrador gestione usuarios, incluyendo aprobar, poner en pendiente, eliminar usuarios
+ * y cambiar roles de usuario. También incluye protección CSRF y mejoras de seguridad de sesión.
+ * */
 
-// Start a new session or resume the existing session
+// Iniciar una nueva sesión o reanudar la existente
 session_start();
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 
-// Check if the user is logged in and has admin role
+// Verificar si el usuario ha iniciado sesión y tiene el rol de administrador
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    // Redirect non-admin users to the index page
+    // Redirigir a usuarios no administradores a la página de inicio
     header("Location: index.php");
-    exit; // Ensure no further code is executed
+    exit; // Asegurar que no se ejecute más código
 }
 
-// CSRF token generation
+// Generación de token CSRF
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Handle POST requests for user status and role updates
+// Manejar solicitudes POST para actualizaciones de estado y rol de usuario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die('CSRF token validation failed');
+        die('La validación del token CSRF falló');
     }
 
     $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
     $action = filter_input(INPUT_POST, 'action', FILTER_SANITIZE_STRING);
 
-    // Initialize query variables
+    // Inicializar variables de consulta
     $query = "";
 
-    // Determine the action to take: approve, set to pending, delete user, set role to admin or user
+    // Determinar la acción a tomar: aprobar, poner en pendiente, eliminar usuario, establecer rol como administrador o usuario
     switch ($action) {
         case 'approve':
             $query = "UPDATE users SET status='approved' WHERE username=?";
@@ -56,69 +54,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $query = "UPDATE users SET role='user' WHERE username=?";
             break;
         default:
-            die('Invalid action');
+            die('Acción inválida');
     }
 
-    // Execute the prepared statement if a valid action is set
+    // Ejecutar la sentencia preparada si se establece una acción válida
     if (!empty($query)) {
         $statement = mysqli_prepare($con, $query);
         if ($statement) {
             mysqli_stmt_bind_param($statement, "s", $username);
             mysqli_stmt_execute($statement);
             mysqli_stmt_close($statement);
+            $_SESSION['message'] = "Usuario actualizado correctamente.";
         } else {
-            // Log error and handle it gracefully
-            error_log("Database error: " . mysqli_error($con));
-            die('Database error');
+            // Registrar error y manejarlo con gracia
+            error_log("Error de base de datos: " . mysqli_error($con));
+            die('Error de base de datos');
         }
     }
 }
 
-// Fetch all users from the database
+// Obtener todos los usuarios de la base de datos
 $userquery = "SELECT * FROM users";
 $userresult = mysqli_query($con, $userquery);
 
-// Include the header file
+// Incluir el archivo de cabecera
 require 'header.php';
 mysqli_close($con);
 ?>
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
 
 <head>
-    <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>User Management | <?php echo htmlspecialchars($labName); ?></title>
+    <title>Gestión de Usuarios | <?php echo htmlspecialchars($labName); ?></title>
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
-    <!-- Inline CSS for styling -->
     <style>
-        body {
+        /* --- ESTANDARIZACIÓN FLEXBOX PARA EL FOOTER --- */
+        html, body {
+            height: 100%;
             margin: 0;
             padding: 0;
         }
 
-        .main-content {
-            justify-content: center;
+        body {
+            background-color: #f4f6f9;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+        /* ----------------------------------------------- */
+
+        .main-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+            background-color: #ffffff;
+        }
+
+        .section-card {
+            background-color: #ffffff;
+            border: 1px solid #e3e6f0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.03);
+        }
+
+        .section-title {
+            color: #4e73df;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1.25rem;
+            display: flex;
             align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #eaecf4;
+            padding-bottom: 8px;
+        }
+
+        .table-responsive {
+            border-radius: 8px;
+            border: 1px solid #e3e6f0;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fc;
+        }
+
+        .table th {
+            background-color: #eaecf4;
+            color: #4e73df;
+            font-weight: 700;
+            border-bottom: 2px solid #e3e6f0;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .table td {
+            vertical-align: middle;
+            background-color: #ffffff;
         }
 
         .action-buttons {
             display: flex;
-            flex-wrap: wrap;
             gap: 5px;
+            justify-content: center;
         }
 
-        .action-buttons .btn {
-            flex: 1 1 auto;
+        .btn-icon {
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            padding: 0;
+            font-weight: 600;
+        }
+
+        .btn-icon i {
+            font-size: 14px;
         }
 
         @media (max-width: 576px) {
-
             .table th,
             .table td {
                 display: block;
@@ -131,6 +202,13 @@ mysqli_close($con);
 
             .table tr {
                 margin-bottom: 15px;
+                border-bottom: 1px solid #dee2e6;
+            }
+
+            .table td {
+                text-align: right;
+                position: relative;
+                padding-left: 50%;
             }
 
             .table td::before {
@@ -139,6 +217,14 @@ mysqli_close($con);
                 text-transform: uppercase;
                 margin-bottom: 5px;
                 display: block;
+                position: absolute;
+                left: 15px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+
+            .action-buttons {
+                justify-content: flex-end;
             }
         }
     </style>
@@ -148,7 +234,7 @@ mysqli_close($con);
 
         function confirmAdminAction(username) {
             if (username === currentAdminUsername) {
-                return confirm("Are you sure you want to change settings for your own account?");
+                return confirm("¿Estás seguro de que deseas cambiar la configuración de tu propia cuenta? Esto podría afectar tus permisos actuales.");
             }
             return true;
         }
@@ -156,59 +242,110 @@ mysqli_close($con);
 </head>
 
 <body>
-    <div class="container mt-4 content">
-        <div class="main-content">
-            <h1 class="text-center">User Management</h1>
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Username</th>
-                            <th>Status</th>
-                            <th>Role</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = mysqli_fetch_assoc($userresult)) { ?>
-                            <tr>
-                                <td data-label="Name"><?php echo htmlspecialchars($row['name']); ?></td>
-                                <td data-label="Username"><?php echo htmlspecialchars($row['username']); ?></td>
-                                <td data-label="Status"><?php echo htmlspecialchars($row['status']); ?></td>
-                                <td data-label="Role"><?php echo htmlspecialchars($row['role']); ?></td>
-                                <td data-label="Actions">
-                                    <form action="manage_users.php" method="post" class="action-buttons" onsubmit="return confirmAdminAction('<?php echo htmlspecialchars($row['username']); ?>')">
-                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                                        <input type="hidden" name="name" value="<?php echo htmlspecialchars($row['name']); ?>">
-                                        <input type="hidden" name="username" value="<?php echo htmlspecialchars($row['username']); ?>">
+    <div class="page-content">
+        <div class="container mt-4 mb-5" style="max-width: 1100px;">
+            
+            <?php if (isset($_SESSION['message'])) : ?>
+                <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <?= $_SESSION['message']; ?>
+                    <?php unset($_SESSION['message']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            <?php endif; ?>
 
-                                        <?php if ($row['status'] === 'pending') { ?>
-                                            <button type="submit" class="btn btn-success btn-sm" name="action" value="approve" title="Approve User"><i class="fas fa-check"></i></button>
-                                        <?php } elseif ($row['status'] === 'approved') { ?>
-                                            <button type="submit" class="btn btn-secondary btn-sm" name="action" value="pending" title="Deactivate User"><i class="fas fa-ban"></i></button>
-                                        <?php } ?>
+            <div class="card main-card">
+                <div class="card-header bg-dark text-white p-3 d-flex align-items-center" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                    <h4 class="mb-0 fs-5"><i class="fas fa-users-cog me-2"></i> Gestión de Usuarios del Sistema</h4>
+                </div>
 
-                                        <?php if ($row['role'] === 'user') { ?>
-                                            <button type="submit" class="btn btn-warning btn-sm" name="action" value="admin" title="Make Admin"><i class="fas fa-user-shield"></i></button>
-                                        <?php } elseif ($row['role'] == 'admin') { ?>
-                                            <button type="submit" class="btn btn-info btn-sm" name="action" value="user" title="Make User"><i class="fas fa-user"></i></button>
-                                        <?php } ?>
+                <div class="card-body bg-light p-4">
+                    <div class="section-card mb-0">
+                        <div class="section-title">
+                            <i class="fas fa-list-ul"></i> Lista de Cuentas Registradas
+                        </div>
 
-                                        <button type="submit" class="btn btn-danger btn-sm" name="action" value="delete" title="Delete User"><i class="fas fa-trash"></i></button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php } ?>
-                    </tbody>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Correo Electrónico</th>
+                                        <th style="width: 10%; text-align: center;">Estado</th>
+                                        <th style="width: 10%; text-align: center;">Rol</th>
+                                        <th style="width: 1%; white-space: nowrap; text-align: center;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php while ($row = mysqli_fetch_assoc($userresult)) { ?>
+                                        <tr>
+                                            <td style="background-color: #fff;" data-label="Nombre"><?php echo htmlspecialchars($row['name']); ?></td>
+                                            <td style="background-color: #fff;" data-label="Correo"><?php echo htmlspecialchars($row['username']); ?></td>
+                                            <td style="background-color: #fff; text-align: center;" data-label="Estado">
+                                                <span class="badge bg-<?= $row['status'] === 'approved' ? 'success' : 'secondary'; ?>">
+                                                    <?= $row['status'] === 'approved' ? 'Aprobado' : 'Pendiente'; ?>
+                                                </span>
+                                            </td>
+                                            <td style="background-color: #fff; text-align: center;" data-label="Rol">
+                                                <span class="badge bg-<?= $row['role'] === 'admin' ? 'danger' : 'info'; ?> text-dark">
+                                                    <?= htmlspecialchars($row['role']); ?>
+                                                </span>
+                                            </td>
+                                            <td style="background-color: #fff;" data-label="Acciones">
+                                                <form action="manage_users.php" method="post" class="action-buttons" onsubmit="return confirmAdminAction('<?php echo htmlspecialchars($row['username']); ?>')">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($row['username']); ?>">
 
-                </table>
+                                                    <?php if ($row['status'] === 'pending') { ?>
+                                                        <button type="submit" class="btn btn-success btn-sm btn-icon" name="action" value="approve" title="Aprobar Usuario" data-bs-toggle="tooltip">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    <?php } elseif ($row['status'] === 'approved') { ?>
+                                                        <button type="submit" class="btn btn-secondary btn-sm btn-icon" name="action" value="pending" title="Suspender Usuario" data-bs-toggle="tooltip">
+                                                            <i class="fas fa-ban"></i>
+                                                        </button>
+                                                    <?php } ?>
+
+                                                    <?php if ($row['role'] === 'user') { ?>
+                                                        <button type="submit" class="btn btn-warning btn-sm btn-icon" name="action" value="admin" title="Hacer Administrador" data-bs-toggle="tooltip">
+                                                            <i class="fas fa-user-shield"></i>
+                                                        </button>
+                                                    <?php } elseif ($row['role'] == 'admin') { ?>
+                                                        <button type="submit" class="btn btn-info btn-sm btn-icon" name="action" value="user" title="Hacer Usuario Estándar" data-bs-toggle="tooltip">
+                                                            <i class="fas fa-user"></i>
+                                                        </button>
+                                                    <?php } ?>
+
+                                                    <button type="submit" class="btn btn-danger btn-sm btn-icon" name="action" value="delete" title="Eliminar Usuario" onclick="return confirm('¿Estás seguro de que deseas eliminar permanentemente a este usuario?');" data-bs-toggle="tooltip">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php } ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Include the footer file -->
-    <?php include 'footer.php'; ?>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Inicializar tooltips de Bootstrap 5
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    </script>
 </body>
 
 </html>

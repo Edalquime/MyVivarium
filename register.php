@@ -70,7 +70,7 @@ function sendConfirmationEmail($to, $token)
     }
 }
 
-// Notificar a administradores sobre un nuevo registro (Incluye teléfono)
+// Notificar a administradores sobre un nuevo registro
 function notifyAdmins($newUserDetails)
 {
     global $con;
@@ -82,7 +82,7 @@ function notifyAdmins($newUserDetails)
         $message = "Un nuevo usuario se ha registrado en el sistema. Aqui estan los detalles:\n\n";
         $message .= "Nombre: " . $newUserDetails['name'] . "\n";
         $message .= "Correo: " . $newUserDetails['email'] . "\n";
-        $message .= "Telefono: " . $newUserDetails['phone'] . "\n"; // 📞 Teléfono añadido
+        $message .= "Telefono: " . $newUserDetails['phone'] . "\n"; 
         $message .= "Cargo: " . $newUserDetails['position'] . "\n";
         $message .= "Correo Verificado: " . ($newUserDetails['email_verified'] == 1 ? 'Si' : 'No') . "\n";
 
@@ -137,12 +137,12 @@ function verifyTurnstile($turnstileResponse, $turnstileSecretKey)
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!empty($_POST['honeypot'])) {
-        $_SESSION['resultMessage'] = "Spam detectado! Intentalo de nuevo.";
+        $_SESSION['resultMessage'] = "¡Spam detectado! Inténtalo de nuevo.";
     } else {
         if (!empty($turnstileSiteKey) && !empty($turnstileSecretKey)) {
             $turnstileResponse = $_POST['cf-turnstile-response'];
             if (!verifyTurnstile($turnstileResponse, $turnstileSecretKey)) {
-                $_SESSION['resultMessage'] = "La verificacion Turnstile fallo. Intentalo de nuevo.";
+                $_SESSION['resultMessage'] = "La verificación Turnstile falló. Inténtalo de nuevo.";
                 $con->close();
                 header("Location: " . htmlspecialchars($_SERVER["PHP_SELF"]));
                 exit;
@@ -151,7 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
         $username = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-        $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING); // 📞 Captura del teléfono
+        $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING); 
         $password = $_POST['password'];
         $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_STRING);
         $role = "user";
@@ -166,11 +166,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $checkEmailStmt->store_result();
 
         if ($checkEmailStmt->num_rows > 0) {
-            $_SESSION['resultMessage'] = "El correo electronico ya esta registrado. Intenta iniciar sesion o usa un correo diferente.";
+            $_SESSION['resultMessage'] = "El correo electrónico ya está registrado. Intenta iniciar sesión o usa un correo diferente.";
         } else {
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-            // ⚠️ NOTA: Asegúrate de que tu tabla `users` tenga la columna `phone` (VARCHAR)
             $stmt = $con->prepare("INSERT INTO users (name, username, phone, position, role, password, status, email_verified, email_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->bind_param("sssssssis", $name, $username, $phone, $position, $role, $hashedPassword, $status, $email_verified, $email_token);
 
@@ -180,15 +179,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $newUserDetails = [
                     'name' => $name,
                     'email' => $username,
-                    'phone' => $phone, // Guardar para correo admin
+                    'phone' => $phone, 
                     'position' => $position,
                     'email_verified' => $email_verified
                 ];
                 notifyAdmins($newUserDetails);
 
-                $_SESSION['resultMessage'] = "Registro exitoso. Revisa tu correo electronico para confirmar tu cuenta.";
+                $_SESSION['resultMessage'] = "Registro exitoso. Revisa tu correo electrónico para confirmar tu cuenta.";
             } else {
-                $_SESSION['resultMessage'] = "El registro fallo. Intentalo de nuevo.";
+                $_SESSION['resultMessage'] = "El registro falló. Inténtalo de nuevo.";
             }
             $stmt->close();
         }
@@ -218,37 +217,79 @@ unset($_SESSION['resultMessage']);
 
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
-        .container {
+        /* --- SOLUCIÓN FLEXBOX PARA CLAVAR EL FOOTER AL FONDO --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+        /* ----------------------------------------------------- */
+
+        .main-card {
             max-width: 600px;
-            margin-top: 50px; /* Reduje el margen superior para que no baje tanto */
-            margin-bottom: 50px;
-            padding: 25px;
+            margin: 40px auto;
+            padding: 30px;
             border: none;
             border-radius: 12px;
             background-color: #ffffff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
-        .btn-primary {
-            background-color: #1a73e8;
-            border: none;
-            border-radius: 8px;
-            padding: 11px;
-            font-weight: 500;
+        .form-label {
+            font-weight: 600;
+            color: #343a40;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
         }
-        .btn-secondary {
+
+        .form-control {
             border-radius: 8px;
-            padding: 11px;
+            padding: 12px;
+            height: auto;
+            border: 1px solid #d1d3e2;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 0.2rem rgba(26, 115, 232, 0.25);
+            border-color: #1a73e8;
+        }
+
+        .btn-modern {
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
         }
 
         .note {
-            color: #888;
-            font-size: 12px;
+            color: #858796;
+            font-size: 0.8rem;
+            font-weight: 400;
         }
 
         .header {
@@ -256,15 +297,16 @@ unset($_SESSION['resultMessage']);
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            background-color: #343a40;
+            background-color: #1e293b;
             color: white;
             padding: 1rem;
             text-align: center;
             margin: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .header .logo-container img.header-logo {
-            width: 150px;
+            width: 140px;
             height: auto;
             display: block;
         }
@@ -272,103 +314,118 @@ unset($_SESSION['resultMessage']);
         .header h2 {
             margin-left: 15px;
             margin-bottom: 0;
-            font-size: 2rem;
+            font-size: 1.75rem;
             white-space: nowrap;
-            font-family: 'Poppins', sans-serif;
             font-weight: 500;
         }
 
         @media (max-width: 576px) {
             .header h2 {
-                font-size: 1.5rem;
+                font-size: 1.4rem;
                 margin-top: 10px;
+                margin-left: 0;
             }
-            .container {
+            .header {
+                flex-direction: column;
+            }
+            .main-card {
                 max-width: 90%;
+                padding: 20px;
+                margin: 20px auto;
             }
         }
     </style>
 </head>
 
 <body>
-    <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
-    <div class="header">
-        <div class="logo-container">
-            <a href="home.php">
-                <img src="images/logo1.jpg" alt="Logo" class="header-logo">
-            </a>
+    <div class="page-content">
+        <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
+        
+        <div class="header">
+            <div class="logo-container">
+                <a href="home.php">
+                    <img src="images/logo1.jpg" alt="Logo" class="header-logo">
+                </a>
+            </div>
+            <h2><?php echo htmlspecialchars($labName); ?></h2>
         </div>
-        <h2><?php echo htmlspecialchars($labName); ?></h2>
+        
+        <div class="container">
+            <div class="card main-card">
+                <h3 class="text-center font-weight-bold mb-4" style="color: #1e293b;">Registro de Usuario</h3>
+                
+                <?php if (!empty($resultMessage)) {
+                    echo "<div class=\"alert alert-info alert-dismissible fade show mb-4\" role=\"alert\">";
+                    echo '<i class="fas fa-info-circle mr-2"></i>' . $resultMessage;
+                    echo '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
+                    echo "</div>";
+                } ?>
+
+                <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
+                    
+                    <div style="display:none;">
+                        <label for="honeypot">Dejar vacío</label>
+                        <input type="text" id="honeypot" name="honeypot">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name" class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Juan Pérez" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="position" class="form-label">Cargo / Posición</label>
+                        <select class="form-control" id="position" name="position" required>
+                            <option value="" disabled selected>Selecciona tu cargo</option>
+                            <option value="Investigador Principal">Investigador Principal</option>
+                            <option value="Cientifico de Investigacion">Científico de Investigación</option>
+                            <option value="Postdoc">Postdoctorado</option>
+                            <option value="Estudiante Doctorado">Estudiante Doctorado</option>
+                            <option value="Estudiante Magister">Estudiante Magíster</option>
+                            <option value="Pregrado">Pregrado / Licenciatura</option>
+                            <option value="Tecnico de Laboratorio">Técnico de Laboratorio</option>
+                            <option value="Asociado de Investigacion">Asociado de Investigación</option>
+                            <option value="Manager de Laboratorio">Manager de Laboratorio</option>
+                            <option value="Tecnico Cuidado Animal">Técnico Cuidado Animal</option>
+                            <option value="Pasante / Voluntario">Pasante o Voluntario</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="form-label">Correo Electrónico <span class="note">(Será tu usuario de ingreso)</span></label>
+                        <input type="email" class="form-control" id="email" name="email" placeholder="correo@ejemplo.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone" class="form-label">Teléfono / WhatsApp de Contacto</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="Ej: +56912345678" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <?php if (!empty($turnstileSiteKey)) { ?>
+                        <div class="cf-turnstile d-flex justify-content-center mb-3" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
+                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                    <?php } ?>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-block btn-modern" name="signup">Registrarse</button>
+                        <a href="index.php" class="btn btn-outline-secondary btn-block btn-modern mt-2">Volver al inicio</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-    
-    <div class="container content">
-        <h2 class="text-center font-weight-bold" style="color: #3c4043;">Registro de Usuario</h2>
-        <hr>
-        <br>
-        <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
-            
-            <div style="display:none;">
-                <label for="honeypot">Dejar vacío</label>
-                <input type="text" id="honeypot" name="honeypot">
-            </div>
 
-            <div class="form-group">
-                <label for="name" class="font-weight-bold">Nombre Completo</label>
-                <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Juan Perez" required>
-            </div>
-
-            <div class="form-group">
-                <label for="position" class="font-weight-bold">Cargo / Posición</label>
-                <select class="form-control" id="position" name="position" required>
-                    <option value="" disabled selected>Selecciona tu cargo</option>
-                    <option value="Investigador Principal">Investigador Principal</option>
-                    <option value="Cientifico de Investigacion">Científico de Investigación</option>
-                    <option value="Postdoc">Postdoctorado</option>
-                    <option value="Estudiante Doctorado">Estudiante Doctorado</option>
-                    <option value="Estudiante Magister">Estudiante Magíster</option>
-                    <option value="Pregrado">Pregrado / Licenciatura</option>
-                    <option value="Tecnico de Laboratorio">Técnico de Laboratorio</option>
-                    <option value="Asociado de Investigacion">Asociado de Investigación</option>
-                    <option value="Manager de Laboratorio">Manager de Laboratorio</option>
-                    <option value="Tecnico Cuidado Animal">Técnico Cuidado Animal</option>
-                    <option value="Pasante / Voluntario">Pasante o Voluntario</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="email" class="font-weight-bold">Correo Electrónico <span class="note">(Sera tu usuario de ingreso)</span></label>
-                <input type="email" class="form-control" id="email" name="email" placeholder="correo@ejemplo.com" required>
-            </div>
-
-            <div class="form-group">
-                <label for="phone" class="font-weight-bold">Teléfono / WhatsApp de Contacto</label>
-                <input type="tel" class="form-control" id="phone" name="phone" placeholder="Ej: +56912345678" required>
-            </div>
-
-            <div class="form-group">
-                <label for="password" class="font-weight-bold">Contraseña</label>
-                <input type="password" class="form-control" id="password" name="password" required>
-            </div>
-
-            <?php if (!empty($turnstileSiteKey)) { ?>
-                <div class="cf-turnstile d-flex justify-content-center mb-3" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
-                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-            <?php } ?>
-
-            <br>
-            <button type="submit" class="btn btn-primary btn-block" name="signup">Registrarse</button>
-            <a href="index.php" class="btn btn-secondary btn-block mt-2">Volver</a>
-        </form>
-        <br>
-
-        <?php if (!empty($resultMessage)) {
-            echo "<div class=\"alert alert-warning\" role=\"alert\">";
-            echo $resultMessage;
-            echo "</div>";
-        } ?>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
     </div>
-    <br>
-    <?php include 'footer.php'; ?>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

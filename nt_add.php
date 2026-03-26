@@ -1,60 +1,60 @@
 <?php
 
 /**
- * Add Note Script
- * 
- * This script handles the addition of a note to the database. It checks if the user is logged in, processes the form submission,
- * and inserts the note into the 'nt_data' table. The response is returned as JSON.
- * 
- */
+ * Script para Añadir Nota
+ * * Este script maneja la adición de una nota a la base de datos. Verifica si el usuario ha iniciado sesión,
+ * procesa el envío del formulario e inserta la nota en la tabla 'notes'. La respuesta se devuelve como JSON.
+ * */
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 include_once("dbcon.php");
 
-// Start or resume the session if not already started
+// Iniciar o reanudar la sesión si no ha sido iniciada
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Check if the user is logged in
+// Verificar si el usuario ha iniciado sesión
 if (!isset($_SESSION['username'])) {
-    echo json_encode(['success' => false, 'message' => 'You must be logged in to add a note.']);
+    echo json_encode(['success' => false, 'message' => 'Debes iniciar sesión para añadir una nota.']);
     exit;
 }
 
-// Handle form submission
-$response = ['success' => false, 'message' => 'Invalid request.'];
+// Inicializar la respuesta por defecto
+$response = ['success' => false, 'message' => 'Solicitud no válida.'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['note_text'])) {
-    $note_text = $_POST['note_text'];
-    $user_id = $_SESSION['user_id']; // Assuming 'username' is the user's identifier
+    $note_text = htmlspecialchars($_POST['note_text']); // Saneamiento básico
+    $user_id = $_SESSION['user_id']; 
     $cage = isset($_POST['cage_id']) ? $_POST['cage_id'] : null;
 
-    // Prepare the SQL statement
+    // Preparar la sentencia SQL para prevenir inyecciones SQL
     $sql = "INSERT INTO notes (user_id, note_text, cage_id) VALUES (?, ?, ?)";
     $stmt = $con->prepare($sql);
     if ($stmt === false) {
-        $response['message'] = 'Prepare failed: ' . htmlspecialchars($con->error);
+        $response['message'] = 'Fallo en la preparación (Prepare): ' . htmlspecialchars($con->error);
         echo json_encode($response);
         exit;
     }
 
-    // Bind parameters
+    // Vincular parámetros
     $stmt->bind_param("sss", $user_id, $note_text, $cage);
 
-    // Execute the statement
+    // Ejecutar la sentencia
     if ($stmt->execute()) {
         $response['success'] = true;
-        $response['message'] = 'Note added successfully.';
+        $response['message'] = 'Nota añadida con éxito.';
     } else {
-        $response['message'] = 'Execute failed: ' . htmlspecialchars($stmt->error);
+        $response['message'] = 'Fallo en la ejecución (Execute): ' . htmlspecialchars($stmt->error);
     }
 
-    // Close the statement
+    // Cerrar la sentencia
     $stmt->close();
 }
 
-// Close the database connection
+// Cerrar la conexión a la base de datos
 $con->close();
 
-// Return the response as JSON
+// Devolver la respuesta como JSON
+header('Content-Type: application/json');
 echo json_encode($response);

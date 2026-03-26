@@ -354,7 +354,7 @@ require 'header.php';
                         <h5 class="mb-0 fs-6"><i class="fas fa-sticky-note me-2"></i> <?php echo htmlspecialchars($labName); ?> - Notas Generales</h5>
                     </div>
                     <div class="card-body bg-light p-4 d-flex flex-column h-100">
-                        <div class="bg-white p-3 rounded border flex-grow-1 overflow-auto" style="max-height: 250px;">
+                        <div class="bg-white p-3 rounded border flex-grow-1">
                             <?php include 'nt_app.php'; ?>
                         </div>
                     </div>
@@ -363,9 +363,7 @@ require 'header.php';
 
         </div>
 
-    </div> 
-
-    <?php include 'footer.php'; ?>
+    </div> <?php include 'footer.php'; ?>
 
     <script>
         function adjustFooter() {

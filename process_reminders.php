@@ -1,27 +1,27 @@
 <?php
+
 /**
- * Process Reminders
- * 
- * This script is intended to be run as a cron job every 5 minutes.
- * It reads active reminders from the database and creates tasks based on their recurrence settings.
- * It also schedules emails by inserting records into the outbox table.
+ * Procesar Recordatorios
+ * * Este script está diseñado para ejecutarse como una tarea programada (Cron Job) cada 5 minutos.
+ * Lee los recordatorios activos de la base de datos y crea tareas basadas en sus configuraciones de recurrencia.
+ * También programa correos electrónicos insertando registros en la tabla de bandeja de salida (outbox).
  */
 
 require 'dbcon.php';
 
-// Fetch the timezone from the settings table
+// Obtener la zona horaria de la tabla de configuraciones
 $timezoneQuery = "SELECT value FROM settings WHERE name = 'timezone'";
 $timezoneResult = mysqli_query($con, $timezoneQuery);
 $timezoneRow = mysqli_fetch_assoc($timezoneResult);
 $timezone = $timezoneRow['value'] ?? 'America/New_York';
 
-// Set the default timezone
+// Establecer la zona horaria por defecto
 date_default_timezone_set($timezone);
 
-// Get the current date and time
+// Obtener la fecha y hora actuales
 $now = new DateTime();
 
-// Fetch active reminders
+// Obtener recordatorios activos
 $reminderQuery = "SELECT * FROM reminders WHERE status = 'active'";
 $reminderResult = $con->query($reminderQuery);
 
@@ -29,29 +29,30 @@ if ($reminderResult) {
     while ($reminder = $reminderResult->fetch_assoc()) {
         $shouldTrigger = false;
 
-        // Calculate the reminder time and task creation time
+        // Calcular la hora del recordatorio y la hora de creación de la tarea
         $reminderTime = new DateTime($reminder['time_of_day']);
         $taskCreationTime = clone $reminderTime;
         $taskCreationTime->modify('-1 day');
 
-        // Adjust the reminder time based on recurrence
+        // Ajustar la hora del recordatorio según la recurrencia
         if ($reminder['recurrence_type'] == 'daily') {
-            // Set to today's date
+            // Establecer a la fecha de hoy
             $reminderTime->setDate($now->format('Y'), $now->format('m'), $now->format('d'));
             $taskCreationTime->setDate($now->format('Y'), $now->format('m'), $now->format('d'));
             $taskCreationTime->modify('-1 day');
         } elseif ($reminder['recurrence_type'] == 'weekly') {
-            // Set to the next occurrence of the specified day of the week
+            // Establecer a la próxima ocurrencia del día de la semana especificado
             $reminderTime->modify('next ' . $reminder['day_of_week']);
             $taskCreationTime = clone $reminderTime;
             $taskCreationTime->modify('-1 day');
         } elseif ($reminder['recurrence_type'] == 'monthly') {
-            // Set to the specified day of the month
+            // Establecer al día especificado del mes
             $reminderDay = $reminder['day_of_month'];
             $reminderTime->setDate($now->format('Y'), $now->format('m'), $reminderDay);
             $taskCreationTime = clone $reminderTime;
             $taskCreationTime->modify('-1 day');
-            // If the date has passed, move to next month
+            
+            // Si la fecha ya pasó, mover al próximo mes
             if ($reminderTime < $now) {
                 $reminderTime->modify('+1 month');
                 $taskCreationTime = clone $reminderTime;
@@ -59,7 +60,7 @@ if ($reminderResult) {
             }
         }
 
-        // Check if we should create the task
+        // Verificar si debemos crear la tarea
         $lastTaskCreated = $reminder['last_task_created'] ? new DateTime($reminder['last_task_created']) : null;
 
         if ($now >= $taskCreationTime && $now < $reminderTime) {
@@ -67,19 +68,19 @@ if ($reminderResult) {
                 $shouldTrigger = true;
             }
         } elseif ($now >= $reminderTime) {
-            // If we're past the reminder time and task wasn't created, create it immediately
+            // Si ya pasó la hora del recordatorio y la tarea no se creó, crearla inmediatamente
             if (!$lastTaskCreated || $lastTaskCreated < $taskCreationTime) {
                 $shouldTrigger = true;
             }
         }
 
         if ($shouldTrigger) {
-            // Create a new task
+            // Crear una nueva tarea
             $title = $reminder['title'];
             $description = $reminder['description'];
             $assignedBy = $reminder['assigned_by'];
             $assignedTo = $reminder['assigned_to'];
-            $status = 'Pending';
+            $status = 'Pending'; // 'Pendiente' en el flujo interno de tu base de datos
             $cageId = $reminder['cage_id'];
             $dueDate = $reminderTime->format('Y-m-d H:i:s');
 
@@ -89,19 +90,19 @@ if ($reminderResult) {
             $task_id = $stmt->insert_id;
             $stmt->close();
 
-            // Update the last_task_created in the reminders table
+            // Actualizar last_task_created en la tabla de recordatorios
             $updateStmt = $con->prepare("UPDATE reminders SET last_task_created = ? WHERE id = ?");
             $currentTimeStr = $now->format('Y-m-d H:i:s');
             $updateStmt->bind_param("si", $currentTimeStr, $reminder['id']);
             $updateStmt->execute();
             $updateStmt->close();
 
-            // Fetch emails and names for assigned_by and assigned_to
+            // Obtener correos electrónicos y nombres para assigned_by y assigned_to
             $emails = [];
             $assignedByName = '';
             $assignedToNames = [];
 
-            // Fetch assigned_by details
+            // Obtener detalles de assigned_by (Asignado por)
             $userQuery = "SELECT name, username FROM users WHERE id = ?";
             $userStmt = $con->prepare($userQuery);
             $userStmt->bind_param("i", $assignedBy);
@@ -111,7 +112,7 @@ if ($reminderResult) {
             $userStmt->close();
             $emails[] = $assignedByEmail;
 
-            // Fetch assigned_to details
+            // Obtener detalles de assigned_to (Asignado a)
             $assignedToArray = explode(',', $assignedTo);
             foreach ($assignedToArray as $assignedToUserId) {
                 $userStmt = $con->prepare($userQuery);
@@ -126,17 +127,17 @@ if ($reminderResult) {
             }
             $assignedToNamesString = implode(', ', $assignedToNames);
 
-            // Prepare email content
-            $subject = "New Task Created from Reminder: $title";
-            $body = "A new task has been created from a reminder. Here are the details:<br><br>" .
-                "<strong>Title:</strong> $title<br>" .
-                "<strong>Description:</strong> $description<br>" .
-                "<strong>Status:</strong> $status<br>" .
-                "<strong>Due Date:</strong> $dueDate<br>" .
-                "<strong>Assigned By:</strong> $assignedByName<br>" .
-                "<strong>Assigned To:</strong> $assignedToNamesString<br>";
+            // Preparar el contenido del correo electrónico en español
+            $subject = "Nueva Tarea Creada desde Recordatorio: $title";
+            $body = "Se ha creado una nueva tarea a partir de un recordatorio. Aquí están los detalles:<br><br>" .
+                "<strong>Título:</strong> $title<br>" .
+                "<strong>Descripción:</strong> $description<br>" .
+                "<strong>Estado:</strong> Pendiente<br>" .
+                "<strong>Fecha de Vencimiento / Realización:</strong> $dueDate<br>" .
+                "<strong>Asignado por:</strong> $assignedByName<br>" .
+                "<strong>Asignado a:</strong> $assignedToNamesString<br>";
 
-            // Schedule the email
+            // Programar el envío del correo
             $scheduledAt = $now->format('Y-m-d H:i:s');
             $recipientList = implode(',', $emails);
 
@@ -147,4 +148,3 @@ if ($reminderResult) {
         }
     }
 }
-?>

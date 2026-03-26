@@ -1,141 +1,295 @@
 <?php
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(E_ALL & ~E_DEPRECATED);
 
 /**
- * Password Reset Page
- * 
- * This script handles the password reset functionality for users. 
- * Users receive a token to reset their password. The script verifies 
- * the token, allows the user to enter a new password, and updates 
- * the database with the new password if the token is valid.
- * 
- */
+ * Página de Registro de Usuarios
+ * * Este script maneja el registro de usuarios para el sistema del laboratorio.
+ * Recopila la información, verifica spam (honeypot y Turnstile), revisa si el correo ya existe,
+ * hashea la contraseña y guarda el registro con estado "pendiente" y teléfono obligatorio.
+ * */
 
-// Include the database connection file
-require 'dbcon.php';
+session_start();
+require 'dbcon.php';  // Archivo de conexión a la base de datos
+require 'config.php';  // Archivo de configuración (SMTP)
+require 'vendor/autoload.php';  // Autoload de PHPMailer
 
-// Query to fetch the lab name from the settings table
-$labQuery = "SELECT value FROM settings WHERE name = 'lab_name' LIMIT 1";
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// Traer configuración del laboratorio desde la base de datos
+$labQuery = "SELECT name, value FROM settings WHERE name IN ('lab_name', 'url', 'cf-turnstile-secretKey', 'cf-turnstile-sitekey')";
 $labResult = mysqli_query($con, $labQuery);
 
-// Default value if the query fails or returns no result
 $labName = "My Vivarium";
-if ($row = mysqli_fetch_assoc($labResult)) {
-    $labName = $row['value'];
-}
+$url = "";
+$turnstileSecretKey = "";
+$turnstileSiteKey = "";
 
-$resultMessage = "";
-$updateStmt = null; // Initialize $updateStmt for later use
-
-// Check if the form is submitted via POST and the reset button was clicked
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reset'])) {
-    $token = $_POST['token'];
-    $newPassword = $_POST['new_password'];
-    $confirmPassword = $_POST['confirm_password'];
-
-    // Check if new password and confirm password are the same
-    if ($newPassword === $confirmPassword) {
-        // Prepare SQL to check if the token exists and is valid
-        $query = "SELECT * FROM users WHERE reset_token = ? AND reset_token_expiration >= NOW()";
-        $stmt = $con->prepare($query);
-        $stmt->bind_param("s", $token);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        // Check if the token is valid
-        if ($result->num_rows == 1) {
-            // Fetch user data
-            $row = $result->fetch_assoc();
-            $username = $row['username'];
-
-            // Prepare SQL to update the user's password
-            $updateQuery = "UPDATE users SET password = ?, reset_token = NULL, reset_token_expiration = NULL WHERE username = ?";
-            $updateStmt = $con->prepare($updateQuery);
-            $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-            $updateStmt->bind_param("ss", $hashedPassword, $username);
-
-            // Execute the update and set a success or failure message
-            if ($updateStmt->execute()) {
-                $resultMessage = "Password reset successfully. You can now <a href='index.php'>login</a> with your new password.";
-            } else {
-                $resultMessage = "Password reset failed. Please try again.";
-            }
-        } else {
-            $resultMessage = "Invalid or expired token. Please request a new password reset.";
-        }
-
-        // Close the statement
-        $stmt->close();
-        if (isset($updateStmt)) {
-            $updateStmt->close();
-        }
-    } else {
-        $resultMessage = "New Password and Confirm Password do not match.";
+while ($row = mysqli_fetch_assoc($labResult)) {
+    if ($row['name'] === 'lab_name') {
+        $labName = $row['value'];
+    } elseif ($row['name'] === 'url') {
+        $url = $row['value'];
+    } elseif ($row['name'] === 'cf-turnstile-secretKey') {
+        $turnstileSecretKey = $row['value'];
+    } elseif ($row['name'] === 'cf-turnstile-sitekey') {
+        $turnstileSiteKey = $row['value'];
     }
-
-    // Close the database connection
-    $con->close();
 }
+
+// Enviar correo de confirmación al usuario
+function sendConfirmationEmail($to, $token)
+{
+    global $url;
+    $confirmLink = "https://" . $url . "/confirm_email.php?token=$token";
+    $subject = 'Confirmacion de correo electronico';
+    $message = "Por favor haz clic en el siguiente enlace para confirmar tu correo electronico:\n$confirmLink";
+
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->Port = SMTP_PORT;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_ENCRYPTION;
+
+        $mail->setFrom(SENDER_EMAIL, SENDER_NAME);
+        $mail->addAddress($to);
+
+        $mail->isHTML(false);
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+
+        $mail->send();
+    } catch (Exception $e) {
+        error_log("No se pudo enviar el correo. Error: {$mail->ErrorInfo}");
+    }
+}
+
+// Notificar a administradores sobre un nuevo registro
+function notifyAdmins($newUserDetails)
+{
+    global $con;
+    $adminQuery = "SELECT username FROM users WHERE role = 'admin'";
+    $adminResult = mysqli_query($con, $adminQuery);
+
+    if (mysqli_num_rows($adminResult) > 0) {
+        $subject = 'Notificacion: Nuevo registro de usuario';
+        $message = "Un nuevo usuario se ha registrado en el sistema. Aqui estan los detalles:\n\n";
+        $message .= "Nombre: " . $newUserDetails['name'] . "\n";
+        $message .= "Correo: " . $newUserDetails['email'] . "\n";
+        $message .= "Telefono: " . $newUserDetails['phone'] . "\n"; 
+        $message .= "Cargo: " . $newUserDetails['position'] . "\n";
+        $message .= "Correo Verificado: " . ($newUserDetails['email_verified'] == 1 ? 'Si' : 'No') . "\n";
+
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->Port = SMTP_PORT;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USERNAME;
+            $mail->Password = SMTP_PASSWORD;
+            $mail->SMTPSecure = SMTP_ENCRYPTION;
+
+            $mail->setFrom(SENDER_EMAIL, SENDER_NAME);
+
+            while ($adminRow = mysqli_fetch_assoc($adminResult)) {
+                $adminEmail = $adminRow['username'];
+                $mail->addAddress($adminEmail);
+            }
+
+            $mail->isHTML(false);
+            $mail->Subject = $subject;
+            $mail->Body = $message;
+
+            $mail->send();
+        } catch (Exception $e) {
+            error_log("No se pudo enviar la notificacion al administrador. Error: {$mail->ErrorInfo}");
+        }
+    }
+}
+
+function verifyTurnstile($turnstileResponse, $turnstileSecretKey)
+{
+    $verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+    $data = [
+        'secret' => $turnstileSecretKey,
+        'response' => $turnstileResponse,
+        'remoteip' => $_SERVER['REMOTE_ADDR']
+    ];
+
+    $ch = curl_init($verifyUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $result = json_decode($response, true);
+
+    return $result['success'];
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!empty($_POST['honeypot'])) {
+        $_SESSION['resultMessage'] = "¡Spam detectado! Inténtalo de nuevo.";
+    } else {
+        if (!empty($turnstileSiteKey) && !empty($turnstileSecretKey)) {
+            $turnstileResponse = $_POST['cf-turnstile-response'];
+            if (!verifyTurnstile($turnstileResponse, $turnstileSecretKey)) {
+                $_SESSION['resultMessage'] = "La verificación Turnstile falló. Inténtalo de nuevo.";
+                $con->close();
+                header("Location: " . htmlspecialchars($_SERVER["PHP_SELF"]));
+                exit;
+            }
+        }
+
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $username = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
+        $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING); 
+        $password = $_POST['password'];
+        $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_STRING);
+        $role = "user";
+        $status = "pending";
+        $email_verified = 0;
+        $email_token = bin2hex(random_bytes(16));
+
+        $checkEmailQuery = "SELECT username FROM users WHERE username = ?";
+        $checkEmailStmt = $con->prepare($checkEmailQuery);
+        $checkEmailStmt->bind_param("s", $username);
+        $checkEmailStmt->execute();
+        $checkEmailStmt->store_result();
+
+        if ($checkEmailStmt->num_rows > 0) {
+            $_SESSION['resultMessage'] = "El correo electrónico ya está registrado. Intenta iniciar sesión o usa un correo diferente.";
+        } else {
+            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+            $stmt = $con->prepare("INSERT INTO users (name, username, phone, position, role, password, status, email_verified, email_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssssis", $name, $username, $phone, $position, $role, $hashedPassword, $status, $email_verified, $email_token);
+
+            if ($stmt->execute()) {
+                sendConfirmationEmail($username, $email_token);
+
+                $newUserDetails = [
+                    'name' => $name,
+                    'email' => $username,
+                    'phone' => $phone, 
+                    'position' => $position,
+                    'email_verified' => $email_verified
+                ];
+                notifyAdmins($newUserDetails);
+
+                $_SESSION['resultMessage'] = "Registro exitoso. Revisa tu correo electrónico para confirmar tu cuenta.";
+            } else {
+                $_SESSION['resultMessage'] = "El registro falló. Inténtalo de nuevo.";
+            }
+            $stmt->close();
+        }
+        $checkEmailStmt->close();
+    }
+    $con->close();
+    header("Location: " . htmlspecialchars($_SERVER["PHP_SELF"]));
+    exit;
+}
+
+$resultMessage = isset($_SESSION['resultMessage']) ? $_SESSION['resultMessage'] : "";
+unset($_SESSION['resultMessage']);
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="es">
 
 <head>
-    <!-- Page Metadata -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password | <?php echo htmlspecialchars($labName); ?></title>
+    <title>Registro de Usuario | <?php echo htmlspecialchars($labName); ?></title>
 
-    <!-- Favicon and icons for different devices -->
     <link rel="icon" href="/icons/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
-    <link rel="icon" sizes="192x192" href="/icons/android-chrome-192x192.png">
-    <link rel="icon" sizes="512x512" href="/icons/android-chrome-512x512.png">
-    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 
-    <!-- Bootstrap CSS -->
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Google Font: Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
-
+    
     <style>
-        .container {
+        /* --- SOLUCIÓN FLEXBOX PARA CLAVAR EL FOOTER AL FONDO --- */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+        /* ----------------------------------------------------- */
+
+        .main-card {
             max-width: 600px;
-            margin-top: 300px;
-            margin-bottom: 300px;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
+            margin: 40px auto;
+            padding: 30px;
+            border: none;
+            border-radius: 12px;
+            background-color: #ffffff;
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
 
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
+        .form-label {
+            font-weight: 600;
+            color: #343a40;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
         }
 
-        .btn:hover {
-            background-color: #0056b3;
+        .form-control {
+            border-radius: 8px;
+            padding: 12px;
+            height: auto;
+            border: 1px solid #d1d3e2;
         }
 
-        .result-message {
-            text-align: center;
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #dff0d8;
-            border: 1px solid #3c763d;
-            color: #3c763d;
-            border-radius: 5px;
+        .form-control:focus {
+            box-shadow: 0 0 0 0.2rem rgba(26, 115, 232, 0.25);
+            border-color: #1a73e8;
+        }
+
+        .btn-modern {
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .note {
+            color: #858796;
+            font-size: 0.8rem;
+            font-weight: 400;
         }
 
         .header {
@@ -143,97 +297,135 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['reset'])) {
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            background-color: #343a40;
+            background-color: #1e293b;
             color: white;
             padding: 1rem;
             text-align: center;
             margin: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .header .logo-container {
-            padding: 0;
-            margin: 0;
-        }
-
-        .header img.header-logo {
-            width: 300px;
+        .header .logo-container img.header-logo {
+            width: 140px;
             height: auto;
             display: block;
-            margin: 0;
         }
 
         .header h2 {
             margin-left: 15px;
             margin-bottom: 0;
-            margin-top: 12px;
-            font-size: 3.5rem;
+            font-size: 1.75rem;
             white-space: nowrap;
-            font-family: 'Poppins', sans-serif;
             font-weight: 500;
         }
 
         @media (max-width: 576px) {
             .header h2 {
-                font-size: 1.8rem;
-                margin-bottom: 5px;
+                font-size: 1.4rem;
+                margin-top: 10px;
+                margin-left: 0;
             }
-
-            .header img.header-logo {
-                width: 150px;
+            .header {
+                flex-direction: column;
+            }
+            .main-card {
+                max-width: 90%;
+                padding: 20px;
+                margin: 20px auto;
             }
         }
     </style>
 </head>
 
 <body>
-    <!-- Header Section -->
-    <?php if ($demo === "yes") include('demo/demo-banner.php'); ?>
-    <div class="header">
-        <div class="logo-container">
-            <a href="home.php">
-                <img src="images/logo1.jpg" alt="Logo" class="header-logo">
-            </a>
+    <div class="page-content">
+        <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
+        
+        <div class="header">
+            <div class="logo-container">
+                <a href="home.php">
+                    <img src="images/logo1.jpg" alt="Logo" class="header-logo">
+                </a>
+            </div>
+            <h2><?php echo htmlspecialchars($labName); ?></h2>
         </div>
-        <h2><?php echo htmlspecialchars($labName); ?></h2>
-    </div>
-    <br>
-    <br>
-    <div class="container content">
-        <h2>Reset Password</h2>
-        <br>
-        <form method="POST" action="">
-            <!-- Hidden field for the token -->
-            <input type="hidden" id="token" name="token" value="<?= htmlspecialchars($_GET['token']); ?>">
+        
+        <div class="container">
+            <div class="card main-card">
+                <h3 class="text-center font-weight-bold mb-4" style="color: #1e293b;">Registro de Usuario</h3>
+                
+                <?php if (!empty($resultMessage)) {
+                    echo "<div class=\"alert alert-info alert-dismissible fade show mb-4\" role=\"alert\">";
+                    echo '<i class="fas fa-info-circle mr-2"></i>' . $resultMessage;
+                    echo '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>';
+                    echo "</div>";
+                } ?>
 
-            <!-- New Password Field -->
-            <div class="form-group">
-                <label for="new_password">New Password</label>
-                <input type="password" class="form-control" id="new_password" name="new_password" required>
+                <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
+                    
+                    <div style="display:none;">
+                        <label for="honeypot">Dejar vacío</label>
+                        <input type="text" id="honeypot" name="honeypot">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name" class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="Ej: Juan Pérez" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="position" class="form-label">Cargo / Posición</label>
+                        <select class="form-control" id="position" name="position" required>
+                            <option value="" disabled selected>Selecciona tu cargo</option>
+                            <option value="Investigador Principal">Investigador Principal</option>
+                            <option value="Cientifico de Investigacion">Científico de Investigación</option>
+                            <option value="Postdoc">Postdoctorado</option>
+                            <option value="Estudiante Doctorado">Estudiante Doctorado</option>
+                            <option value="Estudiante Magister">Estudiante Magíster</option>
+                            <option value="Pregrado">Pregrado / Licenciatura</option>
+                            <option value="Tecnico de Laboratorio">Técnico de Laboratorio</option>
+                            <option value="Asociado de Investigacion">Asociado de Investigación</option>
+                            <option value="Manager de Laboratorio">Manager de Laboratorio</option>
+                            <option value="Tecnico Cuidado Animal">Técnico Cuidado Animal</option>
+                            <option value="Pasante / Voluntario">Pasante o Voluntario</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="form-label">Correo Electrónico <span class="note">(Será tu usuario de ingreso)</span></label>
+                        <input type="email" class="form-control" id="email" name="email" placeholder="correo@ejemplo.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone" class="form-label">Teléfono / WhatsApp de Contacto</label>
+                        <input type="tel" class="form-control" id="phone" name="phone" placeholder="Ej: +56912345678" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <?php if (!empty($turnstileSiteKey)) { ?>
+                        <div class="cf-turnstile d-flex justify-content-center mb-3" data-sitekey="<?php echo htmlspecialchars($turnstileSiteKey); ?>"></div>
+                        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+                    <?php } ?>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary btn-block btn-modern" name="signup">Registrarse</button>
+                        <a href="index.php" class="btn btn-outline-secondary btn-block btn-modern mt-2">Volver al inicio</a>
+                    </div>
+                </form>
             </div>
-
-            <!-- Confirm Password Field -->
-            <div class="form-group">
-                <label for="confirm_password">Confirm Password</label>
-                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-            </div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary" name="reset">Reset Password</button>
-        </form>
-
-        <!-- Display Result Message -->
-        <?php if (!empty($resultMessage)) {
-            echo "<p class='result-message'>$resultMessage</p>";
-        } ?>
-        <br>
-
-        <a href="index.php" class="btn btn-secondary">Go Back</a>
+        </div>
     </div>
 
-    <!-- Footer Section -->
-    <br>
-    <?php include 'footer.php'; ?>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
 
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

@@ -2,48 +2,47 @@
 <?php
 
 /**
- * Email Queue Processor
+ * Procesador de Cola de Correos Electrónicos
  *
- * This script processes a queue of pending emails stored in the database. It attempts to send each email using 
- * the PHPMailer library. If an email is successfully sent, its status is updated to 'sent' in the database. 
- * If the sending fails, the status is updated to 'failed' and an error message is logged. The script is intended 
- * to be executed from the command line.
- * 
+ * Este script procesa una cola de correos electrónicos pendientes almacenados en la base de datos. 
+ * Intenta enviar cada correo utilizando la biblioteca PHPMailer. Si un correo se envía con éxito, 
+ * su estado se actualiza a 'sent' (enviado) en la base de datos. Si el envío falla, el estado se 
+ * actualiza a 'failed' (fallido) y se registra un mensaje de error. El script está destinado a ser 
+ * ejecutado desde la línea de comandos (CLI).
  */
 
-require 'dbcon.php';  // Include database connection file
-require 'config.php';  // Include configuration file
-require 'vendor/autoload.php'; // Load PHPMailer library
+require 'dbcon.php';  // Incluir archivo de conexión a la base de datos
+require 'config.php';  // Incluir archivo de configuración de correo (SMTP)
+require 'vendor/autoload.php'; // Cargar la biblioteca PHPMailer
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 /**
- * Function to send an email using PHPMailer
- * 
- * @param mixed $recipients Recipients of the email, either a comma-separated string or an array
- * @param string $subject Subject of the email
- * @param string $body Body of the email
- * @return bool True if the email was sent successfully, false otherwise
+ * Función para enviar un correo electrónico usando PHPMailer
+ * * @param mixed $recipients Destinatarios del correo, ya sea un string separado por comas o un array
+ * @param string $subject Asunto del correo
+ * @param string $body Cuerpo del correo
+ * @return bool True si el correo se envió con éxito, false en caso contrario
  */
 function sendEmail($recipients, $subject, $body)
 {
     $mail = new PHPMailer(true);
 
     try {
-        // Server settings
+        // Configuraciones del servidor SMTP
         $mail->isSMTP();
         $mail->Host = SMTP_HOST;
+        $mail->Port = SMTP_PORT;
         $mail->SMTPAuth = true;
         $mail->Username = SMTP_USERNAME;
         $mail->Password = SMTP_PASSWORD;
         $mail->SMTPSecure = SMTP_ENCRYPTION;
-        $mail->Port = SMTP_PORT;
 
-        // Sender info
+        // Información del remitente
         $mail->setFrom(SENDER_EMAIL, SENDER_NAME);
 
-        // Handle multiple recipients
+        // Manejar múltiples destinatarios
         if (is_array($recipients)) {
             foreach ($recipients as $recipient) {
                 $mail->addAddress(trim($recipient));
@@ -51,65 +50,67 @@ function sendEmail($recipients, $subject, $body)
         } else {
             $recipientList = explode(',', $recipients);
             foreach ($recipientList as $recipient) {
-                $mail->addAddress(trim($recipient)); // Single recipient case
+                if (!empty(trim($recipient))) {
+                    $mail->addAddress(trim($recipient)); // Caso de destinatario único o lista por comas
+                }
             }
         }
 
-        // Email content
+        // Contenido del correo
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body = $body;
 
-        // Send email
+        // Enviar correo
         $mail->send();
-        return true; // Return true if email sent successfully
+        return true; 
     } catch (Exception $e) {
-        // Log error and return false if email sending fails
-        error_log('Mail could not be sent. Mailer Error: ' . $mail->ErrorInfo);
+        // Registrar error en el log del servidor si falla el envío
+        error_log('No se pudo enviar el correo. Error de PHPMailer: ' . $mail->ErrorInfo);
         return false;
     }
 }
 
 /**
- * Function to send pending emails from the queue
+ * Función para procesar y enviar correos pendientes de la cola
  */
 function sendPendingEmails()
 {
     global $con;
 
-    // Fetch pending emails
+    // Obtener correos electrónicos pendientes de envío
     $stmt = $con->prepare("SELECT id, recipient, subject, body FROM outbox WHERE status = 'pending'");
     $stmt->execute();
-    $stmt->store_result(); // Store the result set to free the connection
+    $stmt->store_result(); // Almacena el resultado para liberar la conexión para updates
     $stmt->bind_result($id, $recipient, $subject, $body);
 
     while ($stmt->fetch()) {
-        // Attempt to send the email
+        // Intentar enviar el correo
         $result = sendEmail($recipient, $subject, $body);
         $sentAt = date('Y-m-d H:i:s');
 
-        // Update the email status based on the result
+        // Actualizar el estado del correo según el resultado
         if ($result) {
             $status = 'sent';
             $errorMessage = null;
         } else {
             $status = 'failed';
-            $errorMessage = 'Error sending email'; // Customize this with more detailed error info if needed
+            $errorMessage = 'Error al enviar el correo electrónico'; // Se puede personalizar con información de error detallada
         }
 
-        // Update email status in the database
-        // Prepare and close update statement within the loop to avoid the "Commands out of sync" error
+        // Actualizar el estado del correo en la base de datos
+        // Se abre y se cierra el updateStmt dentro del bucle para evitar el error "Commands out of sync" en MySQLi
         $updateStmt = $con->prepare("UPDATE outbox SET status = ?, sent_at = ?, error_message = ? WHERE id = ?");
         $updateStmt->bind_param("sssi", $status, $sentAt, $errorMessage, $id);
         $updateStmt->execute();
         $updateStmt->close();
     }
 
-    // Close the select statement
+    // Cerrar la sentencia de selección
     $stmt->close();
 }
 
-// Call the sendPendingEmails function if the script is executed directly
+// Ejecutar el script solo si se llama directamente desde la consola (CLI)
 if (php_sapi_name() == "cli") {
     sendPendingEmails();
 }

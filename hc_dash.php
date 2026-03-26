@@ -1,59 +1,59 @@
 <?php
 
 /**
- * Holding Cage Dashboard Script
- * 
- * This script displays the holding cage dashboard for logged-in users. It includes functionalities such as 
- * adding new cages, printing cage cards, searching cages, and pagination. The page content is dynamically
- * loaded using JavaScript and AJAX.
+ * Script del Panel de Control de Jaulas de Mantenimiento (Holding Cages)
+ * * Este script muestra el panel de jaulas de mantenimiento para usuarios autenticados. Incluye funcionalidades
+ * como agregar nuevas jaulas, imprimir tarjetas de jaulas, buscar jaulas y paginación. El contenido de la página
+ * se carga dinámicamente utilizando JavaScript y AJAX.
  *
  */
 
-// Start a new session or resume the existing session
+// Iniciar una nueva sesión o reanudar la existente
 session_start();
 
-// Include the database connection file
+// Incluir el archivo de conexión a la base de datos
 require 'dbcon.php';
 
-// Check if the user is not logged in, redirect them to index.php with the current URL for redirection after login
+// Verificar si el usuario no ha iniciado sesión, redirigirlo a index.php con la URL actual para redirección después del login
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
-    exit; // Exit to ensure no further code is executed
+    exit; // Salir para asegurar que no se ejecute más código
 }
 
-// Include the header file
+// Incluir el archivo de cabecera
 require 'header.php';
 ?>
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
 
 <head>
-    <!-- Required meta tags for character encoding and responsive design -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Bootstrap for tooltips and styling -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
     <script>
-        // Initialize tooltips when the document is ready
+        // Inicializar tooltips cuando el documento esté listo
         $(document).ready(function() {
-            $('[data-toggle="tooltip"]').tooltip();
+            $('body').tooltip({
+                selector: '[data-toggle="tooltip"]'
+            });
         });
 
-        // Confirm deletion function with a dialog
+        // Función de confirmación de eliminación con un cuadro de diálogo
         function confirmDeletion(id) {
-            var confirmDelete = confirm("Are you sure you want to delete cage - '" + id + "' and related mouse data?");
+            var confirmDelete = confirm("¿Estás seguro de que deseas eliminar la jaula '" + id + "' y los datos de ratones relacionados?");
             if (confirmDelete) {
-                window.location.href = "hc_drop.php?id=" + id + "&confirm=true"; // Redirect to deletion script
+                window.location.href = "hc_drop.php?id=" + id + "&confirm=true"; // Redirigir al script de eliminación
             }
         }
 
-        // Fetch data function to load data dynamically
+        // Función para obtener datos dinámicamente vía AJAX
         function fetchData(page = 1, search = '') {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'hc_fetch_data.php?page=' + page + '&search=' + encodeURIComponent(search), true);
@@ -62,11 +62,11 @@ require 'header.php';
                     try {
                         var response = JSON.parse(xhr.responseText);
                         if (response.tableRows && response.paginationLinks) {
-                            document.getElementById('tableBody').innerHTML = response.tableRows; // Insert table rows
-                            document.getElementById('paginationLinks').innerHTML = response.paginationLinks; // Insert pagination links
-                            document.getElementById('searchInput').value = search; // Preserve search input
+                            document.getElementById('tableBody').innerHTML = response.tableRows; // Insertar filas
+                            document.getElementById('paginationLinks').innerHTML = response.paginationLinks; // Insertar paginación
+                            document.getElementById('searchInput').value = search; // Preservar entrada de búsqueda
 
-                            // Update the URL with the current page and search query
+                            // Actualizar la URL con la página actual y la consulta de búsqueda sin recargar la página
                             const newUrl = new URL(window.location.href);
                             newUrl.searchParams.set('page', page);
                             newUrl.searchParams.set('search', search);
@@ -74,28 +74,28 @@ require 'header.php';
                                 path: newUrl.href
                             }, '', newUrl.href);
                         } else {
-                            console.error('Invalid response format:', response);
+                            console.error('Formato de respuesta inválido:', response);
                         }
                     } catch (e) {
-                        console.error('Error parsing JSON response:', e);
+                        console.error('Error parseando la respuesta JSON:', e);
                     }
                 } else {
-                    console.error('Request failed. Status:', xhr.status);
+                    console.error('La solicitud falló. Estado:', xhr.status);
                 }
             };
             xhr.onerror = function() {
-                console.error('Request failed. An error occurred during the transaction.');
+                console.error('La solicitud falló. Ocurrió un error durante la transacción.');
             };
             xhr.send();
         }
 
-        // Search function to initiate data fetch based on search query
+        // Función de búsqueda para iniciar la obtención de datos basada en el texto ingresado
         function searchCages() {
             var searchQuery = document.getElementById('searchInput').value;
             fetchData(1, searchQuery);
         }
 
-        // Fetch initial data when the DOM content is loaded
+        // Obtener datos iniciales cuando el contenido del DOM esté cargado
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             const page = urlParams.get('page') || 1;
@@ -106,143 +106,180 @@ require 'header.php';
     </script>
 
 
-
-    <title>Dashboard Holding Cage | <?php echo htmlspecialchars($labName); ?></title>
+    <title>Panel de Jaulas de Mantenimiento | <?php echo htmlspecialchars($labName); ?></title>
 
     <style>
-        body {
+        html, body {
+            height: 100%;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
         }
 
-        .container {
-            max-width: 800px;
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        body {
+            background-color: #f4f6f9;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page-content {
+            flex: 1 0 auto;
+        }
+
+        .page-footer {
+            flex-shrink: 0;
+        }
+
+        .main-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+            background-color: #ffffff;
+        }
+
+        .search-card {
+            background-color: #ffffff;
+            border: 1px solid #e3e6f0;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.03);
         }
 
         .table-wrapper {
-            margin-bottom: 50px;
+            margin-bottom: 30px;
             overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e3e6f0;
         }
 
         .table-wrapper table {
             width: 100%;
             border-collapse: collapse;
+            margin-bottom: 0;
         }
 
-        .table-wrapper th,
-        .table-wrapper td {
-            border: 1px solid #ddd;
-            padding: 8px;
+        .table-wrapper th {
+            background-color: #eaecf4;
+            color: #4e73df;
+            font-weight: 700;
+            border: 1px solid #e3e6f0;
+            padding: 12px 15px;
             text-align: left;
         }
 
-        .btn-sm {
-            margin-right: 5px;
+        .table-wrapper td {
+            border: 1px solid #e3e6f0;
+            padding: 12px 15px;
+            vertical-align: middle;
+            background-color: #fff;
+        }
+
+        .btn-modern {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .btn-icon {
-            width: 30px;
-            height: 30px;
+            width: 38px;
+            height: 38px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            border-radius: 8px;
             padding: 0;
+            font-weight: 600;
         }
 
         .btn-icon i {
             font-size: 16px;
-            margin: 0;
         }
 
-        .action-icons a {
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-
-        .action-icons a:last-child {
-            margin-right: 0;
+        .action-icons {
+            display: flex;
+            gap: 10px;
         }
 
         @media (max-width: 768px) {
-
             .table-wrapper th,
             .table-wrapper td {
                 padding: 12px 8px;
                 text-align: center;
             }
-
+            .action-icons {
+                justify-content: center;
+                width: 100%;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container content mt-4">
-        <!-- Include message file for displaying messages -->
-        <?php include('message.php'); ?>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-center">
-                        <h4>Holding Cage Dashboard</h4>
-                        <div class="action-icons mt-3 mt-md-0">
-                            <!-- Add new cage button with tooltip -->
-                            <a href="hc_addn.php" class="btn btn-primary btn-icon" data-toggle="tooltip" data-placement="top" title="Add New Cage">
-                                <i class="fas fa-plus"></i>
-                            </a>
-                            <!-- Print cage card button with tooltip -->
-                            <a href="hc_slct_crd.php" class="btn btn-success btn-icon" data-toggle="tooltip" data-placement="top" title="Print Cage Card">
-                                <i class="fas fa-print"></i>
-                            </a>
-                            <!-- Maintenance button with tooltip -->
-                            <a href="maintenance.php?from=hc_dash" class="btn btn-warning btn-icon" data-toggle="tooltip" data-placement="top" title="Cage Maintenance">
-                                <i class="fas fa-wrench"></i>
-                            </a>
+    <div class="page-content">
+        <div class="container mt-4 mb-5">
+            <?php include('message.php'); ?>
+
+            <div class="card main-card">
+                <div class="card-header bg-dark text-white p-3 d-flex flex-column flex-md-row justify-content-between align-items-center" style="border-top-left-radius: 12px; border-top-right-radius: 12px;">
+                    <h4 class="mb-0 fs-5"><i class="fas fa-layer-group me-2"></i> Panel de Jaulas de Mantenimiento</h4>
+                    
+                    <div class="action-icons mt-3 mt-md-0">
+                        <a href="hc_addn.php" class="btn btn-primary btn-icon" data-toggle="tooltip" data-placement="top" title="Añadir Nueva Jaula">
+                            <i class="fas fa-plus"></i>
+                        </a>
+                        <a href="hc_slct_crd.php" class="btn btn-success btn-icon" data-toggle="tooltip" data-placement="top" title="Imprimir Tarjeta de Jaula">
+                            <i class="fas fa-print"></i>
+                        </a>
+                        <a href="maintenance.php?from=hc_dash" class="btn btn-warning btn-icon" data-toggle="tooltip" data-placement="top" title="Mantenimiento de Jaulas">
+                            <i class="fas fa-wrench"></i>
+                        </a>
+                    </div>
+                </div>
+
+
+                <div class="card-body bg-light p-4">
+                    
+                    <div class="search-card">
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="form-control" style="height: calc(1.5em + 1rem + 2px); border-radius: 8px 0 0 8px;" placeholder="Buscar por ID de Jaula..." onkeyup="searchCages()">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary btn-modern" style="border-radius: 0 8px 8px 0;" type="button" onclick="searchCages()">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-
-                    <div class="card-body">
-                        <!-- Holding Cage Search Box -->
-                        <div class="input-group mb-3">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Enter Cage ID" onkeyup="searchCages()"> <!-- Call search function on keyup -->
-                            <button class="btn btn-primary" type="button" onclick="searchCages()">Search</button>
-                        </div>
-
-                        <div class="table-wrapper" id="tableContainer">
-                            <table class="table table-bordered" id="mouseTable">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 50%;">Cage ID</th>
-                                        <th style="width: 50%;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tableBody">
-                                    <!-- Table rows will be inserted here by JavaScript -->
+                    <div class="table-wrapper" id="tableContainer">
+                        <table class="table table-hover" id="mouseTable">
+                            <thead>
+                                <tr>
+                                    <th>ID de la Jaula</th>
+                                    <th style="width: 1%; white-space: nowrap; text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
                                 </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        <nav aria-label="Page navigation">
-                            <ul class="pagination justify-content-center" id="paginationLinks">
-                                <!-- Pagination links will be inserted here by JavaScript -->
-                            </ul>
-                        </nav>
+                        </table>
                     </div>
+
+                    <nav aria-label="Navegación de páginas">
+                        <ul class="pagination justify-content-center" id="paginationLinks">
+                            </ul>
+                    </nav>
                 </div>
             </div>
         </div>
     </div>
-    <?php include 'footer.php'; ?> <!-- Include footer file -->
 
-    <!-- Bootstrap and jQuery for tooltips -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <div class="page-footer">
+        <?php include 'footer.php'; ?>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
 </body>

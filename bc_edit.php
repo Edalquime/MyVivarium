@@ -60,10 +60,7 @@ sort($strainOptions, SORT_STRING);
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($con, $_GET['id']);
 
-    $query = "SELECT b.*, c.remarks AS remarks, c.pi_name AS pi_name
-              FROM breeding b
-              LEFT JOIN cages c ON b.cage_id = c.cage_id
-              WHERE b.cage_id = ?";
+    $query = "SELECT * FROM breeding WHERE cage_id = ?";
     $stmt = $con->prepare($query);
     $stmt->bind_param("s", $id);
     $stmt->execute();
@@ -84,8 +81,8 @@ if (isset($_GET['id'])) {
     $iacucQuery = "SELECT iacuc_id, iacuc_title FROM iacuc";
     $iacucResult = $con->query($iacucQuery);
 
-    if (mysqli_num_rows($result) === 1) {
-        $breedingcage = mysqli_fetch_assoc($result);
+    if ($result && $result->num_rows === 1) {
+        $breedingcage = $result->fetch_assoc();
 
         $selectedIacucsQuery = "SELECT i.iacuc_id, i.iacuc_title
                                 FROM cage_iacuc ci
@@ -122,7 +119,7 @@ if (isset($_GET['id'])) {
             exit();
         }
 
-        $selectedPiId = $breedingcage['pi_name'];
+        $selectedPiId = isset($breedingcage['pi_name']) ? $breedingcage['pi_name'] : '';
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -157,8 +154,8 @@ if (isset($_GET['id'])) {
             $con->begin_transaction();
 
             try {
-                $updateCageQuery = $con->prepare("UPDATE cages SET pi_name = ?, remarks = ? WHERE cage_id = ?");
-                $updateCageQuery->bind_param("sss", $pi_name, $remarks, $cage_id);
+                $updateCageQuery = $con->prepare("UPDATE breeding SET pi_name = ? WHERE cage_id = ?");
+                $updateCageQuery->bind_param("ss", $pi_name, $cage_id);
                 $updateCageQuery->execute();
                 $updateCageQuery->close();
 
@@ -229,13 +226,17 @@ if (isset($_GET['id'])) {
                     }
                 }
 
+                // ===== 🐁 SECCIÓN CRÍTICA DE CAMADAS BLINDADA =====
                 if (isset($_POST['litter_dob'])) {
                     for ($i = 0; $i < count($_POST['litter_dob']); $i++) {
                         $litter_dob_i = mysqli_real_escape_string($con, $_POST['litter_dob'][$i]);
-                        $pups_alive_i = !empty($_POST['pups_alive'][$i]) ? intval($_POST['pups_alive'][$i]) : 0;
-                        $pups_dead_i = !empty($_POST['pups_dead'][$i]) ? intval($_POST['pups_dead'][$i]) : 0;
-                        $pups_male_i = !empty($_POST['pups_male'][$i]) ? intval($_POST['pups_male'][$i]) : 0;
-                        $pups_female_i = !empty($_POST['pups_female'][$i]) ? intval($_POST['pups_female'][$i]) : 0;
+                        
+                        // Blindamos variables para que siempre envíen un 0 (numérico) y no "" (texto vacío)
+                        $pups_alive_i = (isset($_POST['pups_alive'][$i]) && $_POST['pups_alive'][$i] !== '') ? intval($_POST['pups_alive'][$i]) : 0;
+                        $pups_dead_i = (isset($_POST['pups_dead'][$i]) && $_POST['pups_dead'][$i] !== '') ? intval($_POST['pups_dead'][$i]) : 0;
+                        $pups_male_i = (isset($_POST['pups_male'][$i]) && $_POST['pups_male'][$i] !== '') ? intval($_POST['pups_male'][$i]) : 0;
+                        $pups_female_i = (isset($_POST['pups_female'][$i]) && $_POST['pups_female'][$i] !== '') ? intval($_POST['pups_female'][$i]) : 0;
+                        
                         $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
                         $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
 
@@ -243,12 +244,22 @@ if (isset($_GET['id'])) {
 
                         if (!$isNewLitter) {
                             $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
-                            $updateLitterQuery->bind_param("sssssss", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
+                            
+                            if ($updateLitterQuery === false) {
+                                throw new Exception("Error al preparar UPDATE en litters: " . $con->error);
+                            }
+
+                            $updateLitterQuery->bind_param("siiiisi", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
                             $updateLitterQuery->execute();
                             $updateLitterQuery->close();
                         } else {
                             $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                            $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
+                            
+                            if ($insertLitterQuery === false) {
+                                throw new Exception("Error al preparar INSERT en litters: " . $con->error . ". Verifica los nombres de columna en la tabla litters.");
+                            }
+
+                            $insertLitterQuery->bind_param("ssiiiis", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
                             $insertLitterQuery->execute();
                             $insertLitterQuery->close();
                         }
@@ -321,6 +332,8 @@ if (isset($_GET['id'])) {
             header("Location: bc_dash.php?" . getCurrentUrlParams());
             exit();
         }
+    } else {
+        die("Error: No se encontró la Jaula de Cruce con ID '$id' o la estructura de la base de datos está dañada. Error de MySql: " . $con->error);
     }
 } else {
     $_SESSION['message'] = 'El parámetro ID es faltante.';
@@ -627,7 +640,7 @@ $litters->data_seek(0);
                                 <select class="form-control" id="pi_name" name="pi_name" required>
                                     <?php
                                     while ($row = $result1->fetch_assoc()) {
-                                        $selected = ($row['id'] == $breedingcage['pi_name']) ? 'selected' : '';
+                                        $selected = ($row['id'] == $selectedPiId) ? 'selected' : '';
                                         echo "<option value='{$row['id']}' $selected>{$row['initials']} [{$row['name']}]</option>";
                                     }
                                     ?>
@@ -774,7 +787,7 @@ $litters->data_seek(0);
                         <div class="section-title">
                             <i class="fas fa-comment-dots"></i> Observaciones de la Jaula
                         </div>
-                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks']); ?></textarea>
+                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks'] ?? ''); ?></textarea>
                     </div>
 
                     <div class="section-card">

@@ -101,6 +101,50 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
             gap: 6px;
         }
 
+        /* --- ESTILOS BANNER --- */
+        .maintenance-banner {
+            background-color: #ff9800; /* Color Naranja de advertencia */
+            color: white;
+            padding: 12px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .banner-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .banner-icon {
+            font-size: 1.2rem;
+            animation: pulse 1.5s infinite;
+        }
+
+        .banner-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 5px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
         @media (max-width: 991px) {
             .brand-container {
                 flex-direction: column;
@@ -117,58 +161,15 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
 </head>
 
 <body>
+    
     <div id="maintenance-banner" class="maintenance-banner" style="display: none;">
-    <div class="banner-content">
-        <span class="banner-icon"><i class="fas fa-exclamation-triangle"></i></span>
-        <span class="banner-text">Estamos optimizando el sitio. Podrías experimentar intermitencias temporales en el servicio.</span>
+        <div class="banner-content">
+            <span class="banner-icon"><i class="fas fa-exclamation-triangle"></i></span>
+            <span class="banner-text">Estamos optimizando el sitio. Podrías experimentar intermitencias temporales en el servicio.</span>
+        </div>
+        <button type="button" class="banner-close" onclick="closeBanner()">&times;</button>
     </div>
-    <button type="button" class="banner-close" onclick="closeBanner()">&times;</button>
-</div>
 
-<style>
-.maintenance-banner {
-    background-color: #ff9800; /* Color Naranja de advertencia */
-    color: white;
-    padding: 12px 20px;
-    position: sticky;
-    top: 0;
-    z-index: 9999;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    font-family: sans-serif;
-}
-
-.banner-content {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    font-weight: 500;
-}
-
-.banner-icon {
-    font-size: 1.2rem;
-    animation: pulse 1.5s infinite;
-}
-
-.banner-close {
-    background: transparent;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0 5px;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
-}
-</style>
     <?php if (isset($demo) && $demo === "yes") include('demo/demo-banner.php'); ?>
 
     <nav class="navbar navbar-expand-lg navbar-dark modern-navbar">
@@ -252,3 +253,20 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Verifica si el usuario NO ha cerrado el banner anteriormente en esta computadora
+            if (!localStorage.getItem('hide_maintenance_banner')) {
+                document.getElementById('maintenance-banner').style.display = 'flex';
+            }
+        });
+
+        function closeBanner() {
+            document.getElementById('maintenance-banner').style.display = 'none';
+            // Registramos en el navegador que el usuario ya cerró el banner una vez
+            localStorage.setItem('hide_maintenance_banner', 'true');
+        }
+    </script>
+</body>
+
+</html>

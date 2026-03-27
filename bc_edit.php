@@ -60,7 +60,10 @@ sort($strainOptions, SORT_STRING);
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($con, $_GET['id']);
 
-    $query = "SELECT * FROM breeding WHERE cage_id = ?";
+    $query = "SELECT b.*, c.remarks AS remarks, c.pi_name AS pi_name
+              FROM breeding b
+              LEFT JOIN cages c ON b.cage_id = c.cage_id
+              WHERE b.cage_id = ?";
     $stmt = $con->prepare($query);
     $stmt->bind_param("s", $id);
     $stmt->execute();
@@ -81,8 +84,8 @@ if (isset($_GET['id'])) {
     $iacucQuery = "SELECT iacuc_id, iacuc_title FROM iacuc";
     $iacucResult = $con->query($iacucQuery);
 
-    if ($result && $result->num_rows === 1) {
-        $breedingcage = $result->fetch_assoc();
+    if (mysqli_num_rows($result) === 1) {
+        $breedingcage = mysqli_fetch_assoc($result);
 
         $selectedIacucsQuery = "SELECT i.iacuc_id, i.iacuc_title
                                 FROM cage_iacuc ci
@@ -119,7 +122,7 @@ if (isset($_GET['id'])) {
             exit();
         }
 
-        $selectedPiId = isset($breedingcage['pi_name']) ? $breedingcage['pi_name'] : '';
+        $selectedPiId = $breedingcage['pi_name'];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -134,8 +137,8 @@ if (isset($_GET['id'])) {
             $iacuc = isset($_POST['iacuc']) ? $_POST['iacuc'] : [];
             $users = isset($_POST['user']) ? $_POST['user'] : [];
 
-            $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 0;
-            $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 0;
+            $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 1;
+            $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 1;
 
             $male_id_array = $_POST['male_id'] ?? [];
             $female_id_array = $_POST['female_id'] ?? [];
@@ -149,18 +152,19 @@ if (isset($_GET['id'])) {
 
             $remarks = mysqli_real_escape_string($con, $_POST['remarks']);
 
+            // Litters a eliminar
             $delete_litter_ids = isset($_POST['delete_litter_ids']) ? $_POST['delete_litter_ids'] : [];
 
             $con->begin_transaction();
 
             try {
-                $updateCageQuery = $con->prepare("UPDATE breeding SET pi_name = ? WHERE cage_id = ?");
-                $updateCageQuery->bind_param("ss", $pi_name, $cage_id);
+                $updateCageQuery = $con->prepare("UPDATE cages SET pi_name = ?, remarks = ? WHERE cage_id = ?");
+                $updateCageQuery->bind_param("sss", $pi_name, $remarks, $cage_id);
                 $updateCageQuery->execute();
                 $updateCageQuery->close();
 
                 $updateBreedingQuery = $con->prepare("UPDATE breeding SET `cross` = ?, `strain` = ?, male_n = ?, male_id = ?, female_n = ?, female_id = ?, male_dob = ?, female_dob = ? WHERE cage_id = ?");
-                $updateBreedingQuery->bind_param("sssssssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
+                $updateBreedingQuery->bind_param("sssisssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
                 $updateBreedingQuery->execute();
                 $updateBreedingQuery->close();
 
@@ -215,6 +219,9 @@ if (isset($_GET['id'])) {
                     }
                 }
 
+                // ---------------------------------------------------------------------------------
+                // ELIMINACIÓN DE CAMADAS MARCADAS
+                // ---------------------------------------------------------------------------------
                 if (!empty($delete_litter_ids)) {
                     foreach ($delete_litter_ids as $delete_litter_id) {
                         if (!empty($delete_litter_id)) {
@@ -226,44 +233,34 @@ if (isset($_GET['id'])) {
                     }
                 }
 
-                // ===== 🐁 SECCIÓN CRÍTICA DE CAMADAS BLINDADA =====
+                // ---------------------------------------------------------------------------------
+                // AUTOMATIZACIÓN DE TAREAS CUANDO SE AGREGA/EDITA UN NACIMIENTO (LITTERS)
+                // ---------------------------------------------------------------------------------
                 if (isset($_POST['litter_dob'])) {
                     for ($i = 0; $i < count($_POST['litter_dob']); $i++) {
                         $litter_dob_i = mysqli_real_escape_string($con, $_POST['litter_dob'][$i]);
-                        
-                        // Blindamos variables para que siempre envíen un 0 (numérico) y no "" (texto vacío)
-                        $pups_alive_i = (isset($_POST['pups_alive'][$i]) && $_POST['pups_alive'][$i] !== '') ? intval($_POST['pups_alive'][$i]) : 0;
-                        $pups_dead_i = (isset($_POST['pups_dead'][$i]) && $_POST['pups_dead'][$i] !== '') ? intval($_POST['pups_dead'][$i]) : 0;
-                        
+                        $pups_alive_i = !empty($_POST['pups_alive'][$i]) ? intval($_POST['pups_alive'][$i]) : 0;
+                        $pups_dead_i = !empty($_POST['pups_dead'][$i]) ? intval($_POST['pups_dead'][$i]) : 0;
+                        $pups_male_i = !empty($_POST['pups_male'][$i]) ? intval($_POST['pups_male'][$i]) : 0;
+                        $pups_female_i = !empty($_POST['pups_female'][$i]) ? intval($_POST['pups_female'][$i]) : 0;
                         $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
                         $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
 
                         $isNewLitter = empty($litter_id_i);
 
                         if (!$isNewLitter) {
-                            // Quitamos pups_male y pups_female de la consulta UPDATE y ajustamos types a "siisi"
-                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `remarks` = ? WHERE `id` = ?");
-                            
-                            if ($updateLitterQuery === false) {
-                                throw new Exception("Error al preparar UPDATE en litters: " . $con->error);
-                            }
-
-                            $updateLitterQuery->bind_param("siisi", $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i, $litter_id_i);
+                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
+                            $updateLitterQuery->bind_param("sssssss", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
                             $updateLitterQuery->execute();
                             $updateLitterQuery->close();
                         } else {
-                            // Quitamos pups_male y pups_female de la consulta INSERT y ajustamos types a "ssiis"
-                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `remarks`) VALUES (?, ?, ?, ?, ?)");
-                            
-                            if ($insertLitterQuery === false) {
-                                throw new Exception("Error al preparar INSERT en litters: " . $con->error);
-                            }
-
-                            $insertLitterQuery->bind_param("ssiis", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i);
+                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
                             $insertLitterQuery->execute();
                             $insertLitterQuery->close();
                         }
 
+                        // SOLO si es una camada nueva Y la fecha de nacimiento no está vacía: creamos las tareas de Destete de 21 y 30 días
                         if ($isNewLitter && !empty($litter_dob_i)) {
 
                             $date21 = date('Y-m-d', strtotime($litter_dob_i . ' +21 days'));
@@ -274,11 +271,13 @@ if (isset($_GET['id'])) {
                             $taskStatus = 'Pending';
 
                             foreach ($users as $userId) {
+                                // Tarea 1: 21 Días
                                 $title21 = "🍼 Destete de 21 días - Jaula: $cage_id";
                                 $desc21 = "Nacimiento registrado el $litter_dob_i. Por favor evaluar destete de crías.";
                                 $taskQuery->bind_param("sssisss", $title21, $desc21, $taskBy, $userId, $taskStatus, $date21, $cage_id);
                                 $taskQuery->execute();
 
+                                // Tarea 2: 30 Días
                                 $title30 = "🚨 Destete LÍMITE de 30 días - Jaula: $cage_id";
                                 $desc30 = "Nacimiento registrado el $litter_dob_i. Las crías deben destetarse a la brevedad.";
                                 $taskQuery->bind_param("sssisss", $title30, $desc30, $taskBy, $userId, $taskStatus, $date30, $cage_id);
@@ -288,6 +287,7 @@ if (isset($_GET['id'])) {
                         }
                     }
                 }
+                // ---------------------------------------------------------------------------------
 
                 $con->commit();
                 $_SESSION['message'] = 'Registro de jaula actualizado exitosamente.';
@@ -332,8 +332,6 @@ if (isset($_GET['id'])) {
             header("Location: bc_dash.php?" . getCurrentUrlParams());
             exit();
         }
-    } else {
-        die("Error: No se encontró la Jaula de Cruce con ID '$id' o la estructura de la base de datos está dañada. Error de MySql: " . $con->error);
     }
 } else {
     $_SESSION['message'] = 'El parámetro ID es faltante.';
@@ -343,7 +341,9 @@ if (isset($_GET['id'])) {
 
 require 'header.php';
 
+// Contar camadas para el contador JS
 $litterCount = $litters->num_rows;
+// Rebobinar el resultado para usarlo en el HTML
 $litters->data_seek(0);
 ?>
 <!doctype html>
@@ -420,6 +420,7 @@ $litters->data_seek(0);
             font-weight: 600;
         }
 
+        /* Estilos para las camadas */
         .litter-entry {
             background-color: #f8fff8;
             border: 1px solid #c3e6cb !important;
@@ -523,6 +524,9 @@ $litters->data_seek(0);
             $('#strain').select2({ placeholder: "Seleccionar Cepa", allowClear: true, width: '100%' });
         });
 
+        // -------------------------------------------------------
+        // FUNCIONES PARA CAMADAS
+        // -------------------------------------------------------
         let litterCount = <?= $litterCount ?>;
 
         function addLitter() {
@@ -531,7 +535,6 @@ $litters->data_seek(0);
             const today = new Date();
             const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-            // Modificado: Se retiraron pups_male y pups_female de Javascript
             const html = `
                 <div class="litter-entry">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -549,13 +552,21 @@ $litters->data_seek(0);
                             <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
                             <input type="date" class="form-control" name="litter_dob[]" max="${todayStr}" required min="1900-01-01">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
                             <label class="form-label">Crías Vivas</label>
                             <input type="number" class="form-control" name="pups_alive[]" min="0" value="0">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
                             <label class="form-label">Crías Muertas</label>
                             <input type="number" class="form-control" name="pups_dead[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Machos</label>
+                            <input type="number" class="form-control" name="pups_male[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Hembras</label>
+                            <input type="number" class="form-control" name="pups_female[]" min="0" value="0">
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Observaciones de la Camada</label>
@@ -566,6 +577,7 @@ $litters->data_seek(0);
 
             container.insertAdjacentHTML('beforeend', html);
 
+            // Aplicar max date a los nuevos inputs de fecha
             const currentDate = new Date();
             const maxDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
             container.querySelectorAll('input[type="date"]').forEach(field => field.setAttribute('max', maxDate));
@@ -584,7 +596,9 @@ $litters->data_seek(0);
             }
             litterEntry.remove();
         }
+        // -------------------------------------------------------
 
+        // Función para marcar logs de mantenimiento para eliminación
         function markLogForDeletion(logId) {
             if (confirm('¿Está seguro que desea eliminar este registro de mantenimiento?')) {
                 const logIdsInput = document.getElementById('logs_to_delete');
@@ -618,6 +632,7 @@ $litters->data_seek(0);
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                     <input type="hidden" id="logs_to_delete" name="logs_to_delete" value="">
 
+                    <!-- ===== INFORMACIÓN GENERAL ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-cube"></i> Información General de la Jaula
@@ -633,7 +648,7 @@ $litters->data_seek(0);
                                 <select class="form-control" id="pi_name" name="pi_name" required>
                                     <?php
                                     while ($row = $result1->fetch_assoc()) {
-                                        $selected = ($row['id'] == $selectedPiId) ? 'selected' : '';
+                                        $selected = ($row['id'] == $breedingcage['pi_name']) ? 'selected' : '';
                                         echo "<option value='{$row['id']}' $selected>{$row['initials']} [{$row['name']}]</option>";
                                     }
                                     ?>
@@ -691,28 +706,31 @@ $litters->data_seek(0);
                         </div>
                     </div>
 
+                    <!-- ===== MACHOS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-mars"></i> Machos Reproductores
                         </div>
                         <div class="mb-3">
                             <label for="male_n" class="form-label">Cantidad de Machos <span class="required-asterisk">*</span></label>
-                            <input type="number" class="form-control" id="male_n" name="male_n" required min="0" value="<?php echo $breedingcage['male_n'] ?? 0; ?>" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="male_n" name="male_n" required min="1" value="<?php echo $breedingcage['male_n'] ?? 1; ?>" style="max-width: 200px;">
                         </div>
                         <div id="male_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['male_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['male_dob'] ?? ''); ?>"></div>
                     </div>
 
+                    <!-- ===== HEMBRAS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-venus"></i> Hembras Reproductoras
                         </div>
                         <div class="mb-3">
                             <label for="female_n" class="form-label">Cantidad de Hembras <span class="required-asterisk">*</span></label>
-                            <input type="number" class="form-control" id="female_n" name="female_n" required min="0" value="<?php echo $breedingcage['female_n'] ?? 0; ?>" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="female_n" name="female_n" required min="1" value="<?php echo $breedingcage['female_n'] ?? 1; ?>" style="max-width: 200px;">
                         </div>
                         <div id="female_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['female_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['female_dob'] ?? ''); ?>"></div>
                     </div>
 
+                    <!-- ===== CAMADAS / CRÍAS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-baby"></i> Registro de Camadas (Crías)
@@ -741,15 +759,25 @@ $litters->data_seek(0);
                                         <input type="date" class="form-control" name="litter_dob[]"
                                                value="<?= htmlspecialchars($litter['litter_dob']) ?>" required min="1900-01-01">
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-2">
                                         <label class="form-label">Crías Vivas</label>
                                         <input type="number" class="form-control" name="pups_alive[]" min="0"
                                                value="<?= htmlspecialchars($litter['pups_alive']) ?>">
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-2">
                                         <label class="form-label">Crías Muertas</label>
                                         <input type="number" class="form-control" name="pups_dead[]" min="0"
                                                value="<?= htmlspecialchars($litter['pups_dead']) ?>">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Machos</label>
+                                        <input type="number" class="form-control" name="pups_male[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_male']) ?>">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Hembras</label>
+                                        <input type="number" class="form-control" name="pups_female[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_female']) ?>">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Observaciones de la Camada</label>
@@ -766,13 +794,15 @@ $litters->data_seek(0);
                         </button>
                     </div>
 
+                    <!-- ===== OBSERVACIONES ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-comment-dots"></i> Observaciones de la Jaula
                         </div>
-                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks'] ?? ''); ?></textarea>
+                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks']); ?></textarea>
                     </div>
 
+                    <!-- ===== ARCHIVOS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-paperclip"></i> Archivos Adjuntos
@@ -813,6 +843,7 @@ $litters->data_seek(0);
                         <small class="text-muted">Máximo 10 MB. Formatos: pdf, doc, docx, xls, xlsx, ppt, pptx, jpg, png, gif, svg, webp.</small>
                     </div>
 
+                    <!-- ===== LOG DE MANTENIMIENTO ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-wrench"></i> Registro de Mantenimiento
@@ -828,14 +859,13 @@ $litters->data_seek(0);
                             JOIN users u ON m.user_id = u.id
                             WHERE m.cage_id = ?
                             ORDER BY m.timestamp DESC";
-                        
                         $stmtMaintenance = $con->prepare($maintenanceQuery);
                         $stmtMaintenance->bind_param("s", $id);
                         $stmtMaintenance->execute();
                         $maintenanceLogs = $stmtMaintenance->get_result();
                         ?>
 
-                        <?php if ($maintenanceLogs && $maintenanceLogs->num_rows > 0): ?>
+                        <?php if ($maintenanceLogs->num_rows > 0): ?>
                         <div class="table-responsive">
                             <table class="table table-hover table-sm">
                                 <thead class="table-light">
@@ -870,6 +900,7 @@ $litters->data_seek(0);
                         <?php endif; ?>
                     </div>
 
+                    <!-- ===== BOTONES FINALES ===== -->
                     <div class="d-flex justify-content-end gap-3 mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
                             <i class="fas fa-times me-1"></i> Cancelar

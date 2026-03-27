@@ -52,6 +52,13 @@ if (isset($settings['r2_pres'])) { $r2_pres = $settings['r2_pres']; }
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
+        /* --- CURSOR DE RATÓN GLOBAL --- */
+        body {
+            /* Usamos un SVG en línea que contiene el emoji 🐭 */
+            cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size: 24px;'><text y='24'>🐭</text></svg>"), auto;
+        }
+
+        /* --- TUS ESTILOS EXISTENTES --- */
         body {
             font-family: 'Poppins', sans-serif;
         }

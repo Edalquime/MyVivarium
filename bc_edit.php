@@ -9,7 +9,6 @@ session_start();
 
 require 'dbcon.php';
 
-// Desactivar visualización de errores directos en producción (se guardan en logs)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
@@ -35,7 +34,6 @@ $userResult = $con->query($userQuery);
 $query1 = "SELECT id, initials, name FROM users WHERE position = 'Principal Investigator' AND status = 'approved'";
 $result1 = $con->query($query1);
 
-// --- NUEVO CÓDIGO PARA CEPAS (IGUAL QUE HC_EDIT) ---
 $strainQuery = "SELECT str_id, str_name, str_aka FROM strains";
 $strainResult = $con->query($strainQuery);
 
@@ -57,7 +55,6 @@ while ($strainrow = $strainResult->fetch_assoc()) {
 }
 
 sort($strainOptions, SORT_STRING);
-// ----------------------------------------------------
 
 
 if (isset($_GET['id'])) {
@@ -139,7 +136,7 @@ if (isset($_GET['id'])) {
             $strain = mysqli_real_escape_string($con, $_POST['strain']);
             $iacuc = isset($_POST['iacuc']) ? $_POST['iacuc'] : [];
             $users = isset($_POST['user']) ? $_POST['user'] : [];
-            
+
             $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 1;
             $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 1;
 
@@ -154,6 +151,9 @@ if (isset($_GET['id'])) {
             $female_dob = mysqli_real_escape_string($con, implode(', ', $female_dob_array));
 
             $remarks = mysqli_real_escape_string($con, $_POST['remarks']);
+
+            // Litters a eliminar
+            $delete_litter_ids = isset($_POST['delete_litter_ids']) ? $_POST['delete_litter_ids'] : [];
 
             $con->begin_transaction();
 
@@ -220,6 +220,20 @@ if (isset($_GET['id'])) {
                 }
 
                 // ---------------------------------------------------------------------------------
+                // ELIMINACIÓN DE CAMADAS MARCADAS
+                // ---------------------------------------------------------------------------------
+                if (!empty($delete_litter_ids)) {
+                    foreach ($delete_litter_ids as $delete_litter_id) {
+                        if (!empty($delete_litter_id)) {
+                            $deleteLitterQuery = $con->prepare("DELETE FROM litters WHERE id = ?");
+                            $deleteLitterQuery->bind_param("s", $delete_litter_id);
+                            $deleteLitterQuery->execute();
+                            $deleteLitterQuery->close();
+                        }
+                    }
+                }
+
+                // ---------------------------------------------------------------------------------
                 // AUTOMATIZACIÓN DE TAREAS CUANDO SE AGREGA/EDITA UN NACIMIENTO (LITTERS)
                 // ---------------------------------------------------------------------------------
                 if (isset($_POST['litter_dob'])) {
@@ -248,7 +262,7 @@ if (isset($_GET['id'])) {
 
                         // SOLO si es una camada nueva Y la fecha de nacimiento no está vacía: creamos las tareas de Destete de 21 y 30 días
                         if ($isNewLitter && !empty($litter_dob_i)) {
-                            
+
                             $date21 = date('Y-m-d', strtotime($litter_dob_i . ' +21 days'));
                             $date30 = date('Y-m-d', strtotime($litter_dob_i . ' +30 days'));
 
@@ -315,17 +329,6 @@ if (isset($_GET['id'])) {
                 }
             }
 
-            if (!empty($delete_litter_ids)) {
-                foreach ($delete_litter_ids as $delete_litter_id) {
-                    if (!empty($delete_litter_id)) {
-                        $deleteLitterQuery = $con->prepare("DELETE FROM litters WHERE id = ?");
-                        $deleteLitterQuery->bind_param("s", $delete_litter_id);
-                        $deleteLitterQuery->execute();
-                        $deleteLitterQuery->close();
-                    }
-                }
-            }
-
             header("Location: bc_dash.php?" . getCurrentUrlParams());
             exit();
         }
@@ -337,6 +340,11 @@ if (isset($_GET['id'])) {
 }
 
 require 'header.php';
+
+// Contar camadas para el contador JS
+$litterCount = $litters->num_rows;
+// Rebobinar el resultado para usarlo en el HTML
+$litters->data_seek(0);
 ?>
 <!doctype html>
 <html lang="es">
@@ -405,17 +413,30 @@ require 'header.php';
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 38px;
         }
-        
+
         .btn-modern {
             padding: 0.6rem 1.5rem;
             border-radius: 8px;
             font-weight: 600;
         }
+
+        /* Estilos para las camadas */
+        .litter-entry {
+            background-color: #f8fff8;
+            border: 1px solid #c3e6cb !important;
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .litter-entry h6 {
+            color: #1e7e34;
+        }
     </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            
+
             function getCurrentDate() {
                 const today = new Date();
                 return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -440,7 +461,7 @@ require 'header.php';
 
             function actualizarMachos(isFirstLoad = false) {
                 const cantidad = parseInt(maleNumInput.value) || 0;
-                maleIdContainer.innerHTML = ''; 
+                maleIdContainer.innerHTML = '';
 
                 for (let i = 1; i <= cantidad; i++) {
                     const savedId = (isFirstLoad && maleIdsSaved[i-1]) ? maleIdsSaved[i-1] : '';
@@ -467,7 +488,7 @@ require 'header.php';
 
             function actualizarHembras(isFirstLoad = false) {
                 const cantidad = parseInt(femaleNumInput.value) || 0;
-                femaleIdContainer.innerHTML = ''; 
+                femaleIdContainer.innerHTML = '';
 
                 for (let i = 1; i <= cantidad; i++) {
                     const savedId = (isFirstLoad && femaleIdsSaved[i-1]) ? femaleIdsSaved[i-1] : '';
@@ -503,6 +524,65 @@ require 'header.php';
             $('#strain').select2({ placeholder: "Seleccionar Cepa", allowClear: true, width: '100%' });
         });
 
+        // -------------------------------------------------------
+        // FUNCIONES PARA CAMADAS
+        // -------------------------------------------------------
+        let litterCount = <?= $litterCount ?>;
+
+        function addLitter() {
+            litterCount++;
+            const container = document.getElementById('litters-container');
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+            const html = `
+                <div class="litter-entry">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-paw me-2"></i>Camada #${litterCount} <span class="badge bg-success ms-1" style="font-size:0.7rem;">Nueva</span>
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLitter(this)">
+                            <i class="fas fa-trash me-1"></i>Eliminar
+                        </button>
+                    </div>
+                    <hr class="my-2">
+                    <input type="hidden" name="litter_id[]" value="">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
+                            <input type="date" class="form-control" name="litter_dob[]" max="${todayStr}" required min="1900-01-01">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Crías Vivas</label>
+                            <input type="number" class="form-control" name="pups_alive[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Crías Muertas</label>
+                            <input type="number" class="form-control" name="pups_dead[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Machos</label>
+                            <input type="number" class="form-control" name="pups_male[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Hembras</label>
+                            <input type="number" class="form-control" name="pups_female[]" min="0" value="0">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Observaciones de la Camada</label>
+                            <textarea class="form-control" name="remarks_litter[]" rows="2" placeholder="Notas sobre esta camada..."></textarea>
+                        </div>
+                    </div>
+                </div>`;
+
+            container.insertAdjacentHTML('beforeend', html);
+
+            // Aplicar max date a los nuevos inputs de fecha
+            const currentDate = new Date();
+            const maxDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
+            container.querySelectorAll('input[type="date"]').forEach(field => field.setAttribute('max', maxDate));
+        }
+
         function removeLitter(element) {
             const litterEntry = element.closest('.litter-entry');
             const litterIdInput = litterEntry.querySelector('[name="litter_id[]"]');
@@ -515,6 +595,22 @@ require 'header.php';
                 document.querySelector('form').appendChild(newInput);
             }
             litterEntry.remove();
+        }
+        // -------------------------------------------------------
+
+        // Función para marcar logs de mantenimiento para eliminación
+        function markLogForDeletion(logId) {
+            if (confirm('¿Está seguro que desea eliminar este registro de mantenimiento?')) {
+                const logIdsInput = document.getElementById('logs_to_delete');
+                let logsToDelete = logIdsInput.value ? logIdsInput.value.split(',') : [];
+                logsToDelete.push(logId);
+                logIdsInput.value = logsToDelete.join(',');
+
+                const logRow = document.getElementById(`log-row-${logId}`);
+                if (logRow) {
+                    logRow.style.display = 'none';
+                }
+            }
         }
 
         function goBack() {
@@ -530,11 +626,13 @@ require 'header.php';
                 <h4 class="mb-0 fs-5"><i class="fas fa-edit me-2"></i>Editar Jaula de Cruce (ID: <?= htmlspecialchars($breedingcage['cage_id']); ?>)</h4>
                 <button type="button" class="btn btn-sm btn-light" onclick="goBack()"><i class="fas fa-arrow-left me-1"></i> Volver</button>
             </div>
-            
+
             <div class="card-body bg-light p-4">
                 <form action="" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+                    <input type="hidden" id="logs_to_delete" name="logs_to_delete" value="">
 
+                    <!-- ===== INFORMACIÓN GENERAL ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-cube"></i> Información General de la Jaula
@@ -546,7 +644,7 @@ require 'header.php';
                             </div>
 
                             <div class="col-md-6">
-                                <label for="pi_name" class="form-label">Nombre del Investigador Principal (PI) <span class="required-asterisk">*</span></label>
+                                <label for="pi_name" class="form-label">Investigador Principal (PI) <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="pi_name" name="pi_name" required>
                                     <?php
                                     while ($row = $result1->fetch_assoc()) {
@@ -557,25 +655,18 @@ require 'header.php';
                                 </select>
                             </div>
 
-                           
                             <div class="col-md-6">
                                 <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
                                     <option value="" disabled <?= empty($breedingcage['strain']) ? 'selected' : ''; ?>>Seleccionar Cepa</option>
                                     <?php
                                     $strainExists = false;
-
                                     foreach ($strainOptions as $option) {
                                         $value = explode(" | ", $option)[0];
                                         $selected = ($value == $breedingcage['strain']) ? 'selected' : '';
-
-                                        if ($value == $breedingcage['strain']) {
-                                            $strainExists = true;
-                                        }
-
+                                        if ($value == $breedingcage['strain']) $strainExists = true;
                                         echo "<option value='$value' $selected>$option</option>";
                                     }
-
                                     if (!$strainExists && !empty($breedingcage['strain'])) {
                                         $currentStrainId = htmlspecialchars($breedingcage['strain']);
                                         echo "<option value='$currentStrainId' disabled selected>$currentStrainId | Cepa Desconocida</option>";
@@ -615,6 +706,7 @@ require 'header.php';
                         </div>
                     </div>
 
+                    <!-- ===== MACHOS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-mars"></i> Machos Reproductores
@@ -626,6 +718,7 @@ require 'header.php';
                         <div id="male_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['male_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['male_dob'] ?? ''); ?>"></div>
                     </div>
 
+                    <!-- ===== HEMBRAS ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-venus"></i> Hembras Reproductoras
@@ -637,6 +730,71 @@ require 'header.php';
                         <div id="female_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['female_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['female_dob'] ?? ''); ?>"></div>
                     </div>
 
+                    <!-- ===== CAMADAS / CRÍAS ===== -->
+                    <div class="section-card">
+                        <div class="section-title">
+                            <i class="fas fa-baby"></i> Registro de Camadas (Crías)
+                        </div>
+
+                        <div id="litters-container">
+                            <?php
+                            $litterIndex = 0;
+                            while ($litter = $litters->fetch_assoc()):
+                                $litterIndex++;
+                            ?>
+                            <div class="litter-entry">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold mb-0">
+                                        <i class="fas fa-paw me-2"></i>Camada #<?= $litterIndex ?>
+                                    </h6>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLitter(this)">
+                                        <i class="fas fa-trash me-1"></i>Eliminar
+                                    </button>
+                                </div>
+                                <hr class="my-2">
+                                <input type="hidden" name="litter_id[]" value="<?= htmlspecialchars($litter['id']) ?>">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
+                                        <input type="date" class="form-control" name="litter_dob[]"
+                                               value="<?= htmlspecialchars($litter['litter_dob']) ?>" required min="1900-01-01">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Crías Vivas</label>
+                                        <input type="number" class="form-control" name="pups_alive[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_alive']) ?>">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Crías Muertas</label>
+                                        <input type="number" class="form-control" name="pups_dead[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_dead']) ?>">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Machos</label>
+                                        <input type="number" class="form-control" name="pups_male[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_male']) ?>">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Hembras</label>
+                                        <input type="number" class="form-control" name="pups_female[]" min="0"
+                                               value="<?= htmlspecialchars($litter['pups_female']) ?>">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label">Observaciones de la Camada</label>
+                                        <textarea class="form-control" name="remarks_litter[]" rows="2"
+                                                  placeholder="Notas sobre esta camada..."><?= htmlspecialchars($litter['remarks']) ?></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endwhile; ?>
+                        </div>
+
+                        <button type="button" class="btn btn-outline-success mt-2" onclick="addLitter()">
+                            <i class="fas fa-plus me-1"></i> Agregar Camada
+                        </button>
+                    </div>
+
+                    <!-- ===== OBSERVACIONES ===== -->
                     <div class="section-card">
                         <div class="section-title">
                             <i class="fas fa-comment-dots"></i> Observaciones de la Jaula
@@ -644,6 +802,105 @@ require 'header.php';
                         <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks']); ?></textarea>
                     </div>
 
+                    <!-- ===== ARCHIVOS ===== -->
+                    <div class="section-card">
+                        <div class="section-title">
+                            <i class="fas fa-paperclip"></i> Archivos Adjuntos
+                        </div>
+
+                        <?php if ($files->num_rows > 0): ?>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre del Archivo</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php while ($file = $files->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($file['file_name']) ?></td>
+                                        <td>
+                                            <a href="<?= htmlspecialchars($file['file_path']) ?>" download="<?= htmlspecialchars($file['file_name']) ?>" class="btn btn-sm btn-outline-primary me-1">
+                                                <i class="fas fa-cloud-download-alt"></i>
+                                            </a>
+                                            <a href="delete_file.php?url=bc_edit&id=<?= intval($file['id']) ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar este archivo?');">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php else: ?>
+                            <p class="text-muted small mb-3">No hay archivos adjuntos.</p>
+                        <?php endif; ?>
+
+                        <label class="form-label">Subir nuevo archivo</label>
+                        <input type="file" class="form-control" id="fileUpload" name="fileUpload">
+                        <small class="text-muted">Máximo 10 MB. Formatos: pdf, doc, docx, xls, xlsx, ppt, pptx, jpg, png, gif, svg, webp.</small>
+                    </div>
+
+                    <!-- ===== LOG DE MANTENIMIENTO ===== -->
+                    <div class="section-card">
+                        <div class="section-title">
+                            <i class="fas fa-wrench"></i> Registro de Mantenimiento
+                            <a href="maintenance.php?from=bc_dash" class="btn btn-sm btn-warning ms-auto">
+                                <i class="fas fa-plus me-1"></i> Agregar
+                            </a>
+                        </div>
+
+                        <?php
+                        $maintenanceQuery = "
+                            SELECT m.id, m.timestamp, u.name AS user_name, m.comments, m.user_id
+                            FROM maintenance m
+                            JOIN users u ON m.user_id = u.id
+                            WHERE m.cage_id = ?
+                            ORDER BY m.timestamp DESC";
+                        $stmtMaintenance = $con->prepare($maintenanceQuery);
+                        $stmtMaintenance->bind_param("s", $id);
+                        $stmtMaintenance->execute();
+                        $maintenanceLogs = $stmtMaintenance->get_result();
+                        ?>
+
+                        <?php if ($maintenanceLogs->num_rows > 0): ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:22%;">Fecha</th>
+                                        <th style="width:22%;">Usuario</th>
+                                        <th style="width:46%;">Comentario</th>
+                                        <th style="width:10%;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php while ($log = $maintenanceLogs->fetch_assoc()): ?>
+                                    <tr id="log-row-<?= $log['id']; ?>">
+                                        <td><?= htmlspecialchars($log['timestamp'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($log['user_name'] ?? 'Desconocido') ?></td>
+                                        <td>
+                                            <input type="hidden" name="log_ids[]" value="<?= htmlspecialchars($log['id']) ?>">
+                                            <textarea name="log_comments[]" class="form-control form-control-sm" rows="2"><?= htmlspecialchars($log['comments'] ?? '') ?></textarea>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="markLogForDeletion(<?= $log['id']; ?>)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php else: ?>
+                            <p class="text-muted small">No hay registros de mantenimiento para esta jaula.</p>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- ===== BOTONES FINALES ===== -->
                     <div class="d-flex justify-content-end gap-3 mt-4">
                         <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
                             <i class="fas fa-times me-1"></i> Cancelar
@@ -652,10 +909,13 @@ require 'header.php';
                             <i class="fas fa-save me-1"></i> Guardar Cambios
                         </button>
                     </div>
+
                 </form>
             </div>
         </div>
     </div>
+
+    <?php include 'footer.php'; ?>
 </body>
 
 </html>

@@ -234,8 +234,6 @@ if (isset($_GET['id'])) {
                         // Blindamos variables para que siempre envíen un 0 (numérico) y no "" (texto vacío)
                         $pups_alive_i = (isset($_POST['pups_alive'][$i]) && $_POST['pups_alive'][$i] !== '') ? intval($_POST['pups_alive'][$i]) : 0;
                         $pups_dead_i = (isset($_POST['pups_dead'][$i]) && $_POST['pups_dead'][$i] !== '') ? intval($_POST['pups_dead'][$i]) : 0;
-                        $pups_male_i = (isset($_POST['pups_male'][$i]) && $_POST['pups_male'][$i] !== '') ? intval($_POST['pups_male'][$i]) : 0;
-                        $pups_female_i = (isset($_POST['pups_female'][$i]) && $_POST['pups_female'][$i] !== '') ? intval($_POST['pups_female'][$i]) : 0;
                         
                         $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
                         $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
@@ -243,23 +241,25 @@ if (isset($_GET['id'])) {
                         $isNewLitter = empty($litter_id_i);
 
                         if (!$isNewLitter) {
-                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
+                            // Quitamos pups_male y pups_female de la consulta UPDATE y ajustamos types a "siisi"
+                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `remarks` = ? WHERE `id` = ?");
                             
                             if ($updateLitterQuery === false) {
                                 throw new Exception("Error al preparar UPDATE en litters: " . $con->error);
                             }
 
-                            $updateLitterQuery->bind_param("siiiisi", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
+                            $updateLitterQuery->bind_param("siisi", $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i, $litter_id_i);
                             $updateLitterQuery->execute();
                             $updateLitterQuery->close();
                         } else {
-                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            // Quitamos pups_male y pups_female de la consulta INSERT y ajustamos types a "ssiis"
+                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `remarks`) VALUES (?, ?, ?, ?, ?)");
                             
                             if ($insertLitterQuery === false) {
-                                throw new Exception("Error al preparar INSERT en litters: " . $con->error . ". Verifica los nombres de columna en la tabla litters.");
+                                throw new Exception("Error al preparar INSERT en litters: " . $con->error);
                             }
 
-                            $insertLitterQuery->bind_param("ssiiiis", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
+                            $insertLitterQuery->bind_param("ssiis", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i);
                             $insertLitterQuery->execute();
                             $insertLitterQuery->close();
                         }
@@ -531,6 +531,7 @@ $litters->data_seek(0);
             const today = new Date();
             const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
+            // Modificado: Se retiraron pups_male y pups_female de Javascript
             const html = `
                 <div class="litter-entry">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -548,21 +549,13 @@ $litters->data_seek(0);
                             <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
                             <input type="date" class="form-control" name="litter_dob[]" max="${todayStr}" required min="1900-01-01">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-4">
                             <label class="form-label">Crías Vivas</label>
                             <input type="number" class="form-control" name="pups_alive[]" min="0" value="0">
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-4">
                             <label class="form-label">Crías Muertas</label>
                             <input type="number" class="form-control" name="pups_dead[]" min="0" value="0">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Machos</label>
-                            <input type="number" class="form-control" name="pups_male[]" min="0" value="0">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Hembras</label>
-                            <input type="number" class="form-control" name="pups_female[]" min="0" value="0">
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Observaciones de la Camada</label>
@@ -748,25 +741,15 @@ $litters->data_seek(0);
                                         <input type="date" class="form-control" name="litter_dob[]"
                                                value="<?= htmlspecialchars($litter['litter_dob']) ?>" required min="1900-01-01">
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-4">
                                         <label class="form-label">Crías Vivas</label>
                                         <input type="number" class="form-control" name="pups_alive[]" min="0"
                                                value="<?= htmlspecialchars($litter['pups_alive']) ?>">
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-4">
                                         <label class="form-label">Crías Muertas</label>
                                         <input type="number" class="form-control" name="pups_dead[]" min="0"
                                                value="<?= htmlspecialchars($litter['pups_dead']) ?>">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Machos</label>
-                                        <input type="number" class="form-control" name="pups_male[]" min="0"
-                                               value="<?= htmlspecialchars($litter['pups_male']) ?>">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Hembras</label>
-                                        <input type="number" class="form-control" name="pups_female[]" min="0"
-                                               value="<?= htmlspecialchars($litter['pups_female']) ?>">
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Observaciones de la Camada</label>

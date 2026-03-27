@@ -156,7 +156,9 @@ if (isset($_GET['id'])) {
 
             $updateQueryCages = "UPDATE cages SET pi_name = ?, remarks = ? WHERE cage_id = ?";
             $stmtCages = $con->prepare($updateQueryCages);
-            $stmtCages->bind_param("iss", $pi_name, $remarks, $cage_id);
+            
+            // CORRECCIÓN AQUÍ: Cambiado de "iss" a "sss" para que no dé Error 500
+            $stmtCages->bind_param("sss", $pi_name, $remarks, $cage_id); 
             $stmtCages->execute();
             $stmtCages->close();
 
@@ -441,7 +443,7 @@ require 'header.php';
                 </div>
 
                 <div class="card-body bg-light p-4">
-                    <form id="editForm" method="POST" action="hc_edit.php?id=<?= $id; ?>&<?= getCurrentUrlParams(); ?>" enctype="multipart/form-data">
+                    <form id="editForm" method="POST" action="hc_edit-2.php?id=<?= $id; ?>&<?= getCurrentUrlParams(); ?>" enctype="multipart/form-data">
                         <input type="hidden" id="mice_to_delete" name="mice_to_delete" value="">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 

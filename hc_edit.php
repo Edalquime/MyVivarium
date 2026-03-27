@@ -15,7 +15,7 @@ require 'dbcon.php';
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-// Verificar si el usuario no ha iniciado sesión, redirigirlo a index.php con la URL actual para redirección después del inicio de sesión
+// Verificar si el usuario no ha iniciado sesión, redirigirlo a index.php con la URL actual para para redirigir después del inicio de sesión
 if (!isset($_SESSION['username'])) {
     $currentUrl = urlencode($_SERVER['REQUEST_URI']);
     header("Location: index.php?redirect=$currentUrl");
@@ -156,9 +156,8 @@ if (isset($_GET['id'])) {
 
             $updateQueryCages = "UPDATE cages SET pi_name = ?, remarks = ? WHERE cage_id = ?";
             $stmtCages = $con->prepare($updateQueryCages);
-            
-            // CORRECCIÓN AQUÍ: Cambiado de "iss" a "sss" para que no dé Error 500
-            $stmtCages->bind_param("sss", $pi_name, $remarks, $cage_id); 
+            // Aquí se cambió el primer parámetro a "s" en lugar de "i" para prevenir Error 500 por tipado de mysqli_real_escape_string
+            $stmtCages->bind_param("sss", $pi_name, $remarks, $cage_id);
             $stmtCages->execute();
             $stmtCages->close();
 
@@ -202,7 +201,8 @@ if (isset($_GET['id'])) {
                 $note = mysqli_real_escape_string($con, $notes[$i]);
                 $existing_mouse_id = isset($existing_mouse_ids[$i]) ? mysqli_real_escape_string($con, $existing_mouse_ids[$i]) : null;
 
-                if (!empty($mouse_id)) {
+                // MODIFICACIÓN CRÍTICA: Cambiado de !empty() a !== '' para que acepte valores como el "0" sin descartarlos
+                if ($mouse_id !== '') { 
                     if ($existing_mouse_id) {
                         $updateMouseQuery = "UPDATE mice SET mouse_id = ?, genotype = ?, notes = ? WHERE id = ?";
                         $stmtMouseUpdate = $con->prepare($updateMouseQuery);
@@ -312,7 +312,8 @@ if (isset($_GET['id'])) {
                 }
             }
 
-            header("Location: hc_dash.php?" . getCurrentUrlParams());
+            // Cambiado la acción para que se mantenga ejecutándose sobre este mismo script `hc_edit-2.php`
+            header("Location: hc_edit-2.php?id=$cage_id&" . getCurrentUrlParams());
             exit();
         }
     }

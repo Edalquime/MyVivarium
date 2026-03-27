@@ -163,10 +163,7 @@ if (isset($_GET['id'])) {
                 $updateCageQuery->close();
 
                 $updateBreedingQuery = $con->prepare("UPDATE breeding SET `cross` = ?, `strain` = ?, male_n = ?, male_id = ?, female_n = ?, female_id = ?, male_dob = ?, female_dob = ? WHERE cage_id = ?");
-                
-                // CORRECCIÓN AQUÍ: Se reemplazaron las 'i' por 's' para que soporte strings de escape seguros sin colapsar con Error 500
-                $updateBreedingQuery->bind_param("sssssssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id); 
-                
+                $updateBreedingQuery->bind_param("sssssssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
                 $updateBreedingQuery->execute();
                 $updateBreedingQuery->close();
 
@@ -694,7 +691,6 @@ $litters->data_seek(0);
                         </div>
                         <div class="mb-3">
                             <label for="male_n" class="form-label">Cantidad de Machos <span class="required-asterisk">*</span></label>
-                            
                             <input type="number" class="form-control" id="male_n" name="male_n" required min="0" value="<?php echo $breedingcage['male_n'] ?? 0; ?>" style="max-width: 200px;">
                         </div>
                         <div id="male_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['male_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['male_dob'] ?? ''); ?>"></div>
@@ -706,7 +702,6 @@ $litters->data_seek(0);
                         </div>
                         <div class="mb-3">
                             <label for="female_n" class="form-label">Cantidad de Hembras <span class="required-asterisk">*</span></label>
-                            
                             <input type="number" class="form-control" id="female_n" name="female_n" required min="0" value="<?php echo $breedingcage['female_n'] ?? 0; ?>" style="max-width: 200px;">
                         </div>
                         <div id="female_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['female_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['female_dob'] ?? ''); ?>"></div>
@@ -837,13 +832,14 @@ $litters->data_seek(0);
                             JOIN users u ON m.user_id = u.id
                             WHERE m.cage_id = ?
                             ORDER BY m.timestamp DESC";
+                        
                         $stmtMaintenance = $con->prepare($maintenanceQuery);
                         $stmtMaintenance->bind_param("s", $id);
                         $stmtMaintenance->execute();
                         $maintenanceLogs = $stmtMaintenance->get_result();
                         ?>
 
-                        <?php if ($maintenanceLogs->num_rows > 0): ?>
+                        <?php if ($maintenanceLogs && $maintenanceLogs->num_rows > 0): ?>
                         <div class="table-responsive">
                             <table class="table table-hover table-sm">
                                 <thead class="table-light">

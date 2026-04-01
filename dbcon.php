@@ -28,4 +28,4 @@ if ($con->connect_error) {
 }
 
 // Configurar charset a utf8 para evitar problemas con tildes o Ñ
-$con->set_charset("utf8");
+$con->set_charset("utf8mb4");

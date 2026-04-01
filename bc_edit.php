@@ -9,6 +9,7 @@ session_start();
 
 require 'dbcon.php';
 
+// Desactivar visualización de errores directos en producción (se guardan en logs)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
@@ -34,6 +35,7 @@ $userResult = $con->query($userQuery);
 $query1 = "SELECT id, initials, name FROM users WHERE position = 'Principal Investigator' AND status = 'approved'";
 $result1 = $con->query($query1);
 
+// --- NUEVO CÓDIGO PARA CEPAS (IGUAL QUE HC_EDIT) ---
 $strainQuery = "SELECT str_id, str_name, str_aka FROM strains";
 $strainResult = $con->query($strainQuery);
 
@@ -55,12 +57,16 @@ while ($strainrow = $strainResult->fetch_assoc()) {
 }
 
 sort($strainOptions, SORT_STRING);
+// ----------------------------------------------------
 
 
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($con, $_GET['id']);
 
-    $query = "SELECT * FROM breeding WHERE cage_id = ?";
+    $query = "SELECT b.*, c.remarks AS remarks, c.pi_name AS pi_name
+              FROM breeding b
+              LEFT JOIN cages c ON b.cage_id = c.cage_id
+              WHERE b.cage_id = ?";
     $stmt = $con->prepare($query);
     $stmt->bind_param("s", $id);
     $stmt->execute();
@@ -81,8 +87,8 @@ if (isset($_GET['id'])) {
     $iacucQuery = "SELECT iacuc_id, iacuc_title FROM iacuc";
     $iacucResult = $con->query($iacucQuery);
 
-    if ($result && $result->num_rows === 1) {
-        $breedingcage = $result->fetch_assoc();
+    if (mysqli_num_rows($result) === 1) {
+        $breedingcage = mysqli_fetch_assoc($result);
 
         $selectedIacucsQuery = "SELECT i.iacuc_id, i.iacuc_title
                                 FROM cage_iacuc ci
@@ -119,7 +125,7 @@ if (isset($_GET['id'])) {
             exit();
         }
 
-        $selectedPiId = isset($breedingcage['pi_name']) ? $breedingcage['pi_name'] : '';
+        $selectedPiId = $breedingcage['pi_name'];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -133,9 +139,9 @@ if (isset($_GET['id'])) {
             $strain = mysqli_real_escape_string($con, $_POST['strain']);
             $iacuc = isset($_POST['iacuc']) ? $_POST['iacuc'] : [];
             $users = isset($_POST['user']) ? $_POST['user'] : [];
-
-            $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 0;
-            $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 0;
+            
+            $male_n = isset($_POST['male_n']) ? intval($_POST['male_n']) : 1;
+            $female_n = isset($_POST['female_n']) ? intval($_POST['female_n']) : 1;
 
             $male_id_array = $_POST['male_id'] ?? [];
             $female_id_array = $_POST['female_id'] ?? [];
@@ -149,18 +155,16 @@ if (isset($_GET['id'])) {
 
             $remarks = mysqli_real_escape_string($con, $_POST['remarks']);
 
-            $delete_litter_ids = isset($_POST['delete_litter_ids']) ? $_POST['delete_litter_ids'] : [];
-
             $con->begin_transaction();
 
             try {
-                $updateCageQuery = $con->prepare("UPDATE breeding SET pi_name = ? WHERE cage_id = ?");
-                $updateCageQuery->bind_param("ss", $pi_name, $cage_id);
+                $updateCageQuery = $con->prepare("UPDATE cages SET pi_name = ?, remarks = ? WHERE cage_id = ?");
+                $updateCageQuery->bind_param("sss", $pi_name, $remarks, $cage_id);
                 $updateCageQuery->execute();
                 $updateCageQuery->close();
 
                 $updateBreedingQuery = $con->prepare("UPDATE breeding SET `cross` = ?, `strain` = ?, male_n = ?, male_id = ?, female_n = ?, female_id = ?, male_dob = ?, female_dob = ? WHERE cage_id = ?");
-                $updateBreedingQuery->bind_param("sssssssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
+                $updateBreedingQuery->bind_param("sssisssss", $pairing_date, $strain, $male_n, $male_id, $female_n, $female_id, $male_dob, $female_dob, $cage_id);
                 $updateBreedingQuery->execute();
                 $updateBreedingQuery->close();
 
@@ -215,54 +219,36 @@ if (isset($_GET['id'])) {
                     }
                 }
 
-                if (!empty($delete_litter_ids)) {
-                    foreach ($delete_litter_ids as $delete_litter_id) {
-                        if (!empty($delete_litter_id)) {
-                            $deleteLitterQuery = $con->prepare("DELETE FROM litters WHERE id = ?");
-                            $deleteLitterQuery->bind_param("s", $delete_litter_id);
-                            $deleteLitterQuery->execute();
-                            $deleteLitterQuery->close();
-                        }
-                    }
-                }
-
+                // ---------------------------------------------------------------------------------
+                // AUTOMATIZACIÓN DE TAREAS CUANDO SE AGREGA/EDITA UN NACIMIENTO (LITTERS)
+                // ---------------------------------------------------------------------------------
                 if (isset($_POST['litter_dob'])) {
                     for ($i = 0; $i < count($_POST['litter_dob']); $i++) {
                         $litter_dob_i = mysqli_real_escape_string($con, $_POST['litter_dob'][$i]);
-                        
-                        $pups_alive_i = (isset($_POST['pups_alive'][$i]) && $_POST['pups_alive'][$i] !== '') ? intval($_POST['pups_alive'][$i]) : 0;
-                        $pups_dead_i = (isset($_POST['pups_dead'][$i]) && $_POST['pups_dead'][$i] !== '') ? intval($_POST['pups_dead'][$i]) : 0;
-                        
+                        $pups_alive_i = !empty($_POST['pups_alive'][$i]) ? intval($_POST['pups_alive'][$i]) : 0;
+                        $pups_dead_i = !empty($_POST['pups_dead'][$i]) ? intval($_POST['pups_dead'][$i]) : 0;
+                        $pups_male_i = !empty($_POST['pups_male'][$i]) ? intval($_POST['pups_male'][$i]) : 0;
+                        $pups_female_i = !empty($_POST['pups_female'][$i]) ? intval($_POST['pups_female'][$i]) : 0;
                         $remarks_litter_i = mysqli_real_escape_string($con, $_POST['remarks_litter'][$i]);
                         $litter_id_i = isset($_POST['litter_id'][$i]) ? mysqli_real_escape_string($con, $_POST['litter_id'][$i]) : '';
 
                         $isNewLitter = empty($litter_id_i);
 
                         if (!$isNewLitter) {
-                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `remarks` = ? WHERE `id` = ?");
-                            
-                            if ($updateLitterQuery === false) {
-                                throw new Exception("Error al preparar UPDATE en litters: " . $con->error);
-                            }
-
-                            $updateLitterQuery->bind_param("siisi", $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i, $litter_id_i);
+                            $updateLitterQuery = $con->prepare("UPDATE litters SET `litter_dob` = ?, `pups_alive` = ?, `pups_dead` = ?, `pups_male` = ?, `pups_female` = ?, `remarks` = ? WHERE `id` = ?");
+                            $updateLitterQuery->bind_param("sssssss", $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i, $litter_id_i);
                             $updateLitterQuery->execute();
                             $updateLitterQuery->close();
                         } else {
-                            // CORREGIDO: Ajustado para 5 columnas y 5 variables pasadas exactas
-                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `remarks`) VALUES (?, ?, ?, ?, ?)");
-                            
-                            if ($insertLitterQuery === false) {
-                                throw new Exception("Error al preparar INSERT en litters: " . $con->error);
-                            }
-
-                            $insertLitterQuery->bind_param("ssiis", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $remarks_litter_i);
+                            $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
                             $insertLitterQuery->execute();
                             $insertLitterQuery->close();
                         }
 
+                        // SOLO si es una camada nueva Y la fecha de nacimiento no está vacía: creamos las tareas de Destete de 21 y 30 días
                         if ($isNewLitter && !empty($litter_dob_i)) {
-
+                            
                             $date21 = date('Y-m-d', strtotime($litter_dob_i . ' +21 days'));
                             $date30 = date('Y-m-d', strtotime($litter_dob_i . ' +30 days'));
 
@@ -271,11 +257,13 @@ if (isset($_GET['id'])) {
                             $taskStatus = 'Pending';
 
                             foreach ($users as $userId) {
+                                // Tarea 1: 21 Días
                                 $title21 = "🍼 Destete de 21 días - Jaula: $cage_id";
                                 $desc21 = "Nacimiento registrado el $litter_dob_i. Por favor evaluar destete de crías.";
                                 $taskQuery->bind_param("sssisss", $title21, $desc21, $taskBy, $userId, $taskStatus, $date21, $cage_id);
                                 $taskQuery->execute();
 
+                                // Tarea 2: 30 Días
                                 $title30 = "🚨 Destete LÍMITE de 30 días - Jaula: $cage_id";
                                 $desc30 = "Nacimiento registrado el $litter_dob_i. Las crías deben destetarse a la brevedad.";
                                 $taskQuery->bind_param("sssisss", $title30, $desc30, $taskBy, $userId, $taskStatus, $date30, $cage_id);
@@ -285,6 +273,7 @@ if (isset($_GET['id'])) {
                         }
                     }
                 }
+                // ---------------------------------------------------------------------------------
 
                 $con->commit();
                 $_SESSION['message'] = 'Registro de jaula actualizado exitosamente.';
@@ -298,7 +287,7 @@ if (isset($_GET['id'])) {
                 $maxFileSize = 10 * 1024 * 1024;
 
                 if ($_FILES['fileUpload']['size'] > $maxFileSize) {
-                    $_SESSION['message'] .= " El tamaño del archivo excede el límite de 10 MB.";
+                    $_SESSION['message'] .= " El archivo excede el límite de 10 MB.";
                 } else {
                     $fileExtension = strtolower(pathinfo($_FILES['fileUpload']['name'], PATHINFO_EXTENSION));
 
@@ -326,11 +315,20 @@ if (isset($_GET['id'])) {
                 }
             }
 
+            if (!empty($delete_litter_ids)) {
+                foreach ($delete_litter_ids as $delete_litter_id) {
+                    if (!empty($delete_litter_id)) {
+                        $deleteLitterQuery = $con->prepare("DELETE FROM litters WHERE id = ?");
+                        $deleteLitterQuery->bind_param("s", $delete_litter_id);
+                        $deleteLitterQuery->execute();
+                        $deleteLitterQuery->close();
+                    }
+                }
+            }
+
             header("Location: bc_dash.php?" . getCurrentUrlParams());
             exit();
         }
-    } else {
-        die("Error: No se encontró la Jaula de Cruce con ID '$id' o la estructura de la base de datos está dañada. Error de MySql: " . $con->error);
     }
 } else {
     $_SESSION['message'] = 'El parámetro ID es faltante.';
@@ -339,9 +337,6 @@ if (isset($_GET['id'])) {
 }
 
 require 'header.php';
-
-$litterCount = $litters->num_rows;
-$litters->data_seek(0);
 ?>
 <!doctype html>
 <html lang="es">
@@ -410,29 +405,17 @@ $litters->data_seek(0);
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 38px;
         }
-
+        
         .btn-modern {
             padding: 0.6rem 1.5rem;
             border-radius: 8px;
             font-weight: 600;
         }
-
-        .litter-entry {
-            background-color: #f8fff8;
-            border: 1px solid #c3e6cb !important;
-            border-radius: 10px;
-            padding: 1.25rem;
-            margin-bottom: 1rem;
-        }
-
-        .litter-entry h6 {
-            color: #1e7e34;
-        }
     </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-
+            
             function getCurrentDate() {
                 const today = new Date();
                 return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -457,7 +440,7 @@ $litters->data_seek(0);
 
             function actualizarMachos(isFirstLoad = false) {
                 const cantidad = parseInt(maleNumInput.value) || 0;
-                maleIdContainer.innerHTML = '';
+                maleIdContainer.innerHTML = ''; 
 
                 for (let i = 1; i <= cantidad; i++) {
                     const savedId = (isFirstLoad && maleIdsSaved[i-1]) ? maleIdsSaved[i-1] : '';
@@ -484,7 +467,7 @@ $litters->data_seek(0);
 
             function actualizarHembras(isFirstLoad = false) {
                 const cantidad = parseInt(femaleNumInput.value) || 0;
-                femaleIdContainer.innerHTML = '';
+                femaleIdContainer.innerHTML = ''; 
 
                 for (let i = 1; i <= cantidad; i++) {
                     const savedId = (isFirstLoad && femaleIdsSaved[i-1]) ? femaleIdsSaved[i-1] : '';
@@ -520,53 +503,6 @@ $litters->data_seek(0);
             $('#strain').select2({ placeholder: "Seleccionar Cepa", allowClear: true, width: '100%' });
         });
 
-        let litterCount = <?= $litterCount ?>;
-
-        function addLitter() {
-            litterCount++;
-            const container = document.getElementById('litters-container');
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
-            const html = `
-                <div class="litter-entry">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="fw-bold mb-0">
-                            <i class="fas fa-paw me-2"></i>Camada #${litterCount} <span class="badge bg-success ms-1" style="font-size:0.7rem;">Nueva</span>
-                        </h6>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLitter(this)">
-                            <i class="fas fa-trash me-1"></i>Eliminar
-                        </button>
-                    </div>
-                    <hr class="my-2">
-                    <input type="hidden" name="litter_id[]" value="">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
-                            <input type="date" class="form-control" name="litter_dob[]" max="${todayStr}" required min="1900-01-01">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Crías Vivas</label>
-                            <input type="number" class="form-control" name="pups_alive[]" min="0" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Crías Muertas</label>
-                            <input type="number" class="form-control" name="pups_dead[]" min="0" value="0">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Observaciones de la Camada</label>
-                            <textarea class="form-control" name="remarks_litter[]" rows="2" placeholder="Notas sobre esta camada..."></textarea>
-                        </div>
-                    </div>
-                </div>`;
-
-            container.insertAdjacentHTML('beforeend', html);
-
-            const currentDate = new Date();
-            const maxDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
-            container.querySelectorAll('input[type="date"]').forEach(field => field.setAttribute('max', maxDate));
-        }
-
         function removeLitter(element) {
             const litterEntry = element.closest('.litter-entry');
             const litterIdInput = litterEntry.querySelector('[name="litter_id[]"]');
@@ -579,20 +515,6 @@ $litters->data_seek(0);
                 document.querySelector('form').appendChild(newInput);
             }
             litterEntry.remove();
-        }
-
-        function markLogForDeletion(logId) {
-            if (confirm('¿Está seguro que desea eliminar este registro de mantenimiento?')) {
-                const logIdsInput = document.getElementById('logs_to_delete');
-                let logsToDelete = logIdsInput.value ? logIdsInput.value.split(',') : [];
-                logsToDelete.push(logId);
-                logIdsInput.value = logsToDelete.join(',');
-
-                const logRow = document.getElementById(`log-row-${logId}`);
-                if (logRow) {
-                    logRow.style.display = 'none';
-                }
-            }
         }
 
         function goBack() {
@@ -608,11 +530,10 @@ $litters->data_seek(0);
                 <h4 class="mb-0 fs-5"><i class="fas fa-edit me-2"></i>Editar Jaula de Cruce (ID: <?= htmlspecialchars($breedingcage['cage_id']); ?>)</h4>
                 <button type="button" class="btn btn-sm btn-light" onclick="goBack()"><i class="fas fa-arrow-left me-1"></i> Volver</button>
             </div>
-
+            
             <div class="card-body bg-light p-4">
                 <form action="" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-                    <input type="hidden" id="logs_to_delete" name="logs_to_delete" value="">
 
                     <div class="section-card">
                         <div class="section-title">
@@ -625,29 +546,36 @@ $litters->data_seek(0);
                             </div>
 
                             <div class="col-md-6">
-                                <label for="pi_name" class="form-label">Investigador Principal (PI) <span class="required-asterisk">*</span></label>
+                                <label for="pi_name" class="form-label">Nombre del Investigador Principal (PI) <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="pi_name" name="pi_name" required>
                                     <?php
                                     while ($row = $result1->fetch_assoc()) {
-                                        $selected = ($row['id'] == $selectedPiId) ? 'selected' : '';
+                                        $selected = ($row['id'] == $breedingcage['pi_name']) ? 'selected' : '';
                                         echo "<option value='{$row['id']}' $selected>{$row['initials']} [{$row['name']}]</option>";
                                     }
                                     ?>
                                 </select>
                             </div>
 
+                           
                             <div class="col-md-6">
                                 <label for="strain" class="form-label">Cepa <span class="required-asterisk">*</span></label>
                                 <select class="form-control" id="strain" name="strain" required>
                                     <option value="" disabled <?= empty($breedingcage['strain']) ? 'selected' : ''; ?>>Seleccionar Cepa</option>
                                     <?php
                                     $strainExists = false;
+
                                     foreach ($strainOptions as $option) {
                                         $value = explode(" | ", $option)[0];
                                         $selected = ($value == $breedingcage['strain']) ? 'selected' : '';
-                                        if ($value == $breedingcage['strain']) $strainExists = true;
+
+                                        if ($value == $breedingcage['strain']) {
+                                            $strainExists = true;
+                                        }
+
                                         echo "<option value='$value' $selected>$option</option>";
                                     }
+
                                     if (!$strainExists && !empty($breedingcage['strain'])) {
                                         $currentStrainId = htmlspecialchars($breedingcage['strain']);
                                         echo "<option value='$currentStrainId' disabled selected>$currentStrainId | Cepa Desconocida</option>";
@@ -693,7 +621,7 @@ $litters->data_seek(0);
                         </div>
                         <div class="mb-3">
                             <label for="male_n" class="form-label">Cantidad de Machos <span class="required-asterisk">*</span></label>
-                            <input type="number" class="form-control" id="male_n" name="male_n" required min="0" value="<?php echo $breedingcage['male_n'] ?? 0; ?>" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="male_n" name="male_n" required min="1" value="<?php echo $breedingcage['male_n'] ?? 1; ?>" style="max-width: 200px;">
                         </div>
                         <div id="male_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['male_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['male_dob'] ?? ''); ?>"></div>
                     </div>
@@ -704,105 +632,30 @@ $litters->data_seek(0);
                         </div>
                         <div class="mb-3">
                             <label for="female_n" class="form-label">Cantidad de Hembras <span class="required-asterisk">*</span></label>
-                            <input type="number" class="form-control" id="female_n" name="female_n" required min="0" value="<?php echo $breedingcage['female_n'] ?? 0; ?>" style="max-width: 200px;">
+                            <input type="number" class="form-control" id="female_n" name="female_n" required min="1" value="<?php echo $breedingcage['female_n'] ?? 1; ?>" style="max-width: 200px;">
                         </div>
                         <div id="female_id_container" data-saved-id="<?= htmlspecialchars($breedingcage['female_id'] ?? ''); ?>" data-saved-dob="<?= htmlspecialchars($breedingcage['female_dob'] ?? ''); ?>"></div>
                     </div>
 
                     <div class="section-card">
                         <div class="section-title">
-                            <i class="fas fa-baby"></i> Registro de Camadas (Crías)
-                        </div>
-
-                        <div id="litters-container">
-                            <?php
-                            $litterIndex = 0;
-                            while ($litter = $litters->fetch_assoc()):
-                                $litterIndex++;
-                            ?>
-                            <div class="litter-entry">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fw-bold mb-0">
-                                        <i class="fas fa-paw me-2"></i>Camada #<?= $litterIndex ?>
-                                    </h6>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLitter(this)">
-                                        <i class="fas fa-trash me-1"></i>Eliminar
-                                    </button>
-                                </div>
-                                <hr class="my-2">
-                                <input type="hidden" name="litter_id[]" value="<?= htmlspecialchars($litter['id']) ?>">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label">Fecha de Nacimiento <span class="required-asterisk">*</span></label>
-                                        <input type="date" class="form-control" name="litter_dob[]"
-                                               value="<?= htmlspecialchars($litter['litter_dob']) ?>" required min="1900-01-01">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Crías Vivas</label>
-                                        <input type="number" class="form-control" name="pups_alive[]" min="0"
-                                               value="<?= htmlspecialchars($litter['pups_alive']) ?>">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Crías Muertas</label>
-                                        <input type="number" class="form-control" name="pups_dead[]" min="0"
-                                               value="<?= htmlspecialchars($litter['pups_dead']) ?>">
-                                    </div>
-                                    <div class="col-md-12">
-                                        <label class="form-label">Observaciones de la Camada</label>
-                                        <textarea class="form-control" name="remarks_litter[]" rows="2"
-                                                  placeholder="Notas sobre esta camada..."><?= htmlspecialchars($litter['remarks']) ?></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endwhile; ?>
-                        </div>
-
-                        <button type="button" class="btn btn-outline-success mt-2" onclick="addLitter()">
-                            <i class="fas fa-plus me-1"></i> Agregar Camada
-                        </button>
-                    </div>
-
-                    <div class="section-card">
-                        <div class="section-title">
                             <i class="fas fa-comment-dots"></i> Observaciones de la Jaula
                         </div>
-                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks'] ?? ''); ?></textarea>
+                        <textarea class="form-control" name="remarks" id="remarks" rows="3" placeholder="Añade notas adicionales..."><?php echo htmlspecialchars($breedingcage['remarks']); ?></textarea>
                     </div>
 
-                    <div class="section-card">
-                        <div class="section-title">
-                            <i class="fas fa-paperclip"></i> Archivos Adjuntos
-                        </div>
+                    <div class="d-flex justify-content-end gap-3 mt-4">
+                        <button type="button" class="btn btn-outline-secondary btn-modern" onclick="goBack()">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-modern">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
 
-                        <?php if ($files->num_rows > 0): ?>
-                        <div class="table-responsive mb-3">
-                            <table class="table table-hover table-sm">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Nombre del Archivo</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($file = $files->fetch_assoc()): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($file['file_name']) ?></td>
-                                        <td>
-                                            <a href="<?= htmlspecialchars($file['file_path']) ?>" download="<?= htmlspecialchars($file['file_name']) ?>" class="btn btn-sm btn-outline-primary me-1">
-                                                <i class="fas fa-cloud-download-alt"></i>
-                                            </a>
-                                            <a href="delete_file.php?url=bc_edit&id=<?= intval($file['id']) ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar este archivo?');">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                        <?php else: ?>
-                            <p class="text-muted small mb-3">No hay archivos adjuntos.</p>
-                        <?php endif; ?>
-
-                        <label class="form-label">Subir nuevo archivo</label>
-                        <input type="file" class="form-control" id="fileUpload" name="fileUpload"> [cite: bc
+</html>

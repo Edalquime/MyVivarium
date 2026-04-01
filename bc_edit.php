@@ -270,7 +270,7 @@ if (isset($_GET['id'])) {
                         $updateLitterQuery->close();
                     } else {
                         // SQL Insert sin 'dom'
-                        $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `dom`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)");
+                        $insertLitterQuery = $con->prepare("INSERT INTO litters (`cage_id`, `litter_dob`, `pups_alive`, `pups_dead`, `pups_male`, `pups_female`, `remarks`) VALUES (?, ?, ?, ?, ?, ?, ?)");
                         $insertLitterQuery->bind_param("sssssss", $cage_id, $litter_dob_i, $pups_alive_i, $pups_dead_i, $pups_male_i, $pups_female_i, $remarks_litter_i);
                         $insertLitterQuery->execute();
                         $insertLitterQuery->close();
@@ -407,24 +407,9 @@ require 'header.php';
 
 
             // MODIFICACIÓN: addLitter sin DOM
-           function addLitter() {
-    const container = document.getElementById('litters-container');
-    const div = document.createElement('div');
-    div.className = 'litter-entry bg-white p-3 mb-3 border rounded shadow-sm border-start border-success border-3';
-    div.innerHTML = `
-        <div class="row g-2 align-items-center">
-            <div class="col-md-2"><label class="small fw-bold text-success">Nacimiento</label><input type="date" name="litter_dob[]" class="form-control border-success" required></div>
-            <div class="col-md-1"><label class="small fw-bold text-muted">Vivos</label><input type="number" name="pups_alive[]" class="form-control text-center" value="0"></div>
-            <div class="col-md-1"><label class="small fw-bold text-muted">Machos</label><input type="number" name="pups_male[]" class="form-control text-center" value="0"></div>
-            <div class="col-md-1"><label class="small fw-bold text-muted">Hembras</label><input type="number" name="pups_female[]" class="form-control text-center" value="0">0"></div>
-            <div class="col-md-6"><label class="small fw-bold text-muted">Comentarios</label><input type="text" name="remarks_litter[]" class="form-control" placeholder="Nueva camada..."></div>
-            <div class="col-md-1 text-end">
-                <input type="hidden" name="litter_id[]" value="NEW">
-                <button type="button" class="btn btn-outline-danger btn-sm mt-3" onclick="this.closest('.litter-entry').remove()"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>`;
-    container.appendChild(div);
-}
+            function addLitter() {
+                const litterDiv = document.createElement('div');
+                litterDiv.className = 'litter-entry';
 
                 litterDiv.innerHTML = `
                     <hr>
@@ -626,14 +611,11 @@ require 'header.php';
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                   <div class="card mb-4 border-start border-success border-4 shadow-sm">
-    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-bold"><i class="fas fa-baby-carriage me-2"></i>Registro de Camadas</h5>
-        <button type="button" class="btn btn-light btn-sm fw-bold text-success" onclick="addLitter()">
-            <i class="fas fa-plus-circle me-1"></i> Agregar Camada
-        </button>
-    </div>
-    <div class="card-body bg-light">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4>Edit Breeding Cage</h4>
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="goBack()">Go Back</button>
+                        </div>
                     </div>
                     <div class="card-body">
 

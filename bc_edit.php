@@ -620,137 +620,88 @@ require 'header.php';
                     <div class="card-body">
 
                         <form action="" method="POST" enctype="multipart/form-data">
+<div class="card mb-4 border-start border-primary border-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="fas fa-mouse me-2"></i>Información de Reproductores</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Cage ID</label>
+                <input type="text" name="cage_id" value="<?= htmlspecialchars($row['cage_id']); ?>" class="form-control bg-light" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Protocol</label>
+                <input type="text" name="protocol" value="<?= htmlspecialchars($row['protocol'] ?? ''); ?>" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Strain (Cepa)</label>
+                <select name="strain" class="form-select" required>
+                    <?php while($s = $strainResult->fetch_assoc()): ?>
+                        <option value="<?= $s['str_id']; ?>" <?= ($row['strain'] == $s['str_id']) ? 'selected' : ''; ?>>
+                            <?= htmlspecialchars($s['str_name']); ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Mating Date (Fecha Cruce)</label>
+                <input type="date" name="mating_date" value="<?= $row['mating_date'] ?? ''; ?>" class="form-control">
+            </div>
+        </div>
+    </div>
+</div>
 
-                            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-
-                            <div class="mb-3">
-                                <label for="cage_id" class="form-label">Cage ID</label>
-                                <input type="text" class="form-control" name="cage_id" id="cage_id" value="<?php echo htmlspecialchars($breedingcage['cage_id']); ?>" readonly>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="pi_name" class="form-label">PI Name <span class="required-asterisk">*</span></label>
-                                <select class="form-control" id="pi_name" name="pi_name" required>
-                                    <?php
-                                    while ($row = $result1->fetch_assoc()) {
-                                        $pi_id = htmlspecialchars($row['id']);
-                                        $pi_initials = htmlspecialchars($row['initials']);
-                                        $pi_name = htmlspecialchars($row['name']);
-                                        $selected = ($pi_id == $breedingcage['pi_name']) ? 'selected' : '';
-                                        echo "<option value='$pi_id' $selected>$pi_initials [$pi_name]</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="cross" class="form-label">Cross <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" name="cross" id="cross" required value="<?php echo htmlspecialchars($breedingcage['cross']); ?>">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="iacuc" class="form-label">IACUC</label>
-                                <select class="form-control" id="iacuc" name="iacuc[]" multiple>
-                                    <?php
-                                    while ($iacucRow = $iacucResult->fetch_assoc()) {
-                                        $iacuc_id = htmlspecialchars($iacucRow['iacuc_id']);
-                                        $selected = in_array($iacuc_id, $selectedIacucs) ? 'selected' : '';
-                                        echo "<option value='$iacuc_id' $selected>$iacuc_id</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="user" class="form-label">User <span class="required-asterisk">*</span></label>
-                                <select class="form-control" id="user" name="user[]" multiple required>
-                                    <?php
-                                    while ($userRow = $userResult->fetch_assoc()) {
-                                        $u_id = htmlspecialchars($userRow['id']);
-                                        $initials = htmlspecialchars($userRow['initials']);
-                                        $name = htmlspecialchars($userRow['name']);
-                                        $selected = in_array($u_id, $selectedUsers) ? 'selected' : '';
-                                        echo "<option value='$u_id' $selected>$initials [$name]</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="male_n" class="form-label">Number of Breeding Males <span class="required-asterisk">*</span></label>
-                                <input type="number" class="form-control" id="male_n" name="male_n" required min="1" step="1" value="<?php echo htmlspecialchars($breedingcage['male_n'] ?? 1); ?>">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="male_id" class="form-label">Male ID <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" name="male_id" id="male_id" required value="<?php echo htmlspecialchars($breedingcage['male_id']); ?>">
-                            </div>
-
-                            <div id="male_dates_container" data-saved="<?php echo htmlspecialchars($breedingcage['male_dob']); ?>" class="mb-3 p-3 bg-white border rounded"></div>
-
-
-                            <div class="mb-3">
-                                <label for="female_n" class="form-label">Number of Breeding Females <span class="required-asterisk">*</span></label>
-                                <input type="number" class="form-control" id="female_n" name="female_n" required min="1" step="1" value="<?php echo htmlspecialchars($breedingcage['female_n'] ?? 1); ?>">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="female_id" class="form-label">Female ID <span class="required-asterisk">*</span></label>
-                                <input type="text" class="form-control" name="female_id" id="female_id" required value="<?php echo htmlspecialchars($breedingcage['female_id']); ?>">
-                            </div>
-
-                            <div id="female_dates_container" data-saved="<?php echo htmlspecialchars($breedingcage['female_dob']); ?>" class="mb-3 p-3 bg-white border rounded"></div>
-
-
-                            <div class="mb-3">
-                                <label for="remarks" class="form-label">Remarks</label>
-                                <textarea class="form-control" name="remarks" id="remarks" oninput="adjustTextareaHeight(this)"><?php echo htmlspecialchars($breedingcage['remarks']); ?></textarea>
-                            </div>
-
-                            <div class="mt-4">
-                                <h5>Litter Data</h5>
-                                <div id="litterEntries">
-                                    <?php while ($litter = $litters->fetch_assoc()) : ?>
-                                        <div class="litter-entry mb-3 p-2 border rounded bg-white">
-                                            <div class="mb-3">
-                                                <label for="litter_dob[]" class="form-label">Litter DOB</label>
-                                                <input type="date" class="form-control" name="litter_dob[]" value="<?php echo htmlspecialchars($litter['litter_dob']); ?>" min="1900-01-01">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="pups_alive[]" class="form-label">Pups Alive <span class="required-asterisk">*</span></label>
-                                                <input type="number" class="form-control" name="pups_alive[]" required value="<?php echo htmlspecialchars($litter['pups_alive']); ?>" min="0" step="1">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="pups_dead[]" class="form-label">Pups Dead <span class="required-asterisk">*</span></label>
-                                                <input type="number" class="form-control" name="pups_dead[]" required value="<?php echo htmlspecialchars($litter['pups_dead']); ?>" min="0" step="1">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="pups_male[]" class="form-label">Pups Male</label>
-                                                <input type="number" class="form-control" name="pups_male[]" value="<?php echo htmlspecialchars($litter['pups_male']); ?>" min="0" step="1">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="pups_female[]" class="form-label">Pups Female</label>
-                                                <input type="number" class="form-control" name="pups_female[]" value="<?php echo htmlspecialchars($litter['pups_female']); ?>" min="0" step="1">
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="remarks_litter[]" class="form-label">Remarks</label>
-                                                <textarea class="form-control" name="remarks_litter[]" oninput="adjustTextareaHeight(this)"><?php echo htmlspecialchars($litter['remarks']); ?></textarea>
-                                            </div>
-                                            <input type="hidden" name="litter_id[]" value="<?php echo htmlspecialchars($litter['id']); ?>">
-                                            <button type="button" class="btn btn-danger" onclick="removeLitter(this)">Remove</button>
-                                        </div>
-                                    <?php endwhile; ?>
-                                </div>
-                                <button type="button" class="btn btn-success mt-3" onclick="addLitter()">Add Litter Entry</button>
-                            </div>
-
-                            <br>
-
-                            <div class="d-flex justify-content-end">
-                                <button type="submit" class="btn btn-primary">Update Cage</button>
-                                <button type="button" class="btn btn-secondary" onclick="goBack()">Cancel</button>
-                            </div>
-
+<div class="card mb-4 border-start border-success border-4 shadow-sm">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-baby-carriage me-2"></i>Nacimientos / Camadas</h5>
+        <button type="button" class="btn btn-light btn-sm fw-bold" onclick="addLitter()">
+            <i class="fas fa-plus me-1"></i> Agregar Camada
+        </button>
+    </div>
+    <div class="card-body bg-light">
+        <div id="litters-container">
+            <?php 
+            $litterResult->data_seek(0);
+            while ($litter = $litterResult->fetch_assoc()): 
+            ?>
+                <div class="litter-entry bg-white p-3 mb-3 border rounded shadow-sm">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-success">F. Nacimiento (DOB)</label>
+                            <input type="date" name="litter_dob[]" value="<?= $litter['litter_dob']; ?>" class="form-control border-success">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-center d-block">Vivos</label>
+                            <input type="number" name="pups_alive[]" value="<?= $litter['pups_alive']; ?>" class="form-control text-center">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-center d-block">Muertos</label>
+                            <input type="number" name="pups_dead[]" value="<?= $litter['pups_dead']; ?>" class="form-control text-center">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-center d-block">Macho</label>
+                            <input type="number" name="pups_male[]" value="<?= $litter['pups_male']; ?>" class="form-control text-center">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-center d-block">Hembra</label>
+                            <input type="number" name="pups_female[]" value="<?= $litter['pups_female']; ?>" class="form-control text-center">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end justify-content-center">
+                            <input type="hidden" name="litter_id[]" value="<?= $litter['id']; ?>">
+                            <button type="button" class="btn btn-outline-danger" onclick="removeLitter(this)">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <textarea name="remarks_litter[]" class="form-control form-control-sm" placeholder="Comentarios sobre esta camada..."><?= htmlspecialchars($litter['remarks']); ?></textarea>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    </div>
+</div>
                         </form>
 
                     </div>

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Ver Jaula de Cruce 
+ * Ver Jaula de  Cruce 
  *
  * Este script muestra información detallada sobre una jaula de cruce específica identificada por su ID.
  * Recupera datos de la base de datos, incluyendo información básica, archivos asociados y detalles de las camadas.

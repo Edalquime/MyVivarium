@@ -149,11 +149,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
 
-        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
         $username = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-        $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING); 
+        $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_FULL_SPECIAL_CHARS); 
         $password = $_POST['password'];
-        $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_STRING);
+        $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
         $role = "user";
         $status = "pending";
         $email_verified = 0;

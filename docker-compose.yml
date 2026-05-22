@@ -1,0 +1,45 @@
+services:
+  myvivarium:
+    build: .
+    container_name: myvivarium_app
+    restart: unless-stopped
+
+    healthcheck:
+      disable: true
+
+    ports:
+      - "8080:80"
+
+    environment:
+      DB_HOST: mariadb
+      DB_USERNAME: myvivarium
+      DB_PASSWORD: mypassword
+      DB_DATABASE: myvivarium
+
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: your_email@gmail.com
+      SMTP_PASSWORD: your_app_password
+      SMTP_ENCRYPTION: tls
+      SENDER_EMAIL: your_email@gmail.com
+      SENDER_NAME: MyVivarium
+
+    depends_on:
+      - mariadb
+
+  mariadb:
+    image: mariadb:11
+    container_name: myvivarium_db
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: myvivarium
+      MYSQL_USER: myvivarium
+      MYSQL_PASSWORD: mypassword
+
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  mariadb_data:

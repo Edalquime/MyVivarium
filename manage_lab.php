@@ -66,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_lab'])) {
     $inputFields = ['lab_name', 'url', 'timezone', 'r1_temp', 'r1_humi', 'r1_illu', 'r1_pres', 'r2_temp', 'r2_humi', 'r2_illu', 'r2_pres', 'cf-turnstile-secretKey', 'cf-turnstile-sitekey'];
     $inputData = [];
     foreach ($inputFields as $field) {
-        $inputData[$field] = filter_input(INPUT_POST, $field, FILTER_SANITIZE_STRING);
+        $inputData[$field] = filter_input(INPUT_POST, $field, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     }
 
     // Update or insert new data

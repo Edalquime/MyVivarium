@@ -88,10 +88,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_profile'])) {
     }
 
     $newUsername = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_EMAIL);
-    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
-    $initials = filter_input(INPUT_POST, 'initials', FILTER_SANITIZE_STRING);
-    $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_STRING);
-    $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_STRING); // 📱 Captura de teléfono
+    $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $initials = filter_input(INPUT_POST, 'initials', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $phone = filter_input(INPUT_POST, 'phone', FILTER_SANITIZE_FULL_SPECIAL_CHARS); // 📱 Captura de teléfono
 
     $emailChanged = ($newUsername !== $username);
 

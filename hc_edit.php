@@ -443,7 +443,7 @@ require 'header.php';
                 </div>
 
                 <div class="card-body bg-light p-4">
-                    <form id="editForm" method="POST" action="hc_edit-2.php?id=<?= $id; ?>&<?= getCurrentUrlParams(); ?>" enctype="multipart/form-data">
+                    <form id="editForm" method="POST" action="hc_edit.php?id=<?= $id; ?>&<?= getCurrentUrlParams(); ?>" enctype="multipart/form-data">
                         <input type="hidden" id="mice_to_delete" name="mice_to_delete" value="">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
@@ -678,11 +678,14 @@ require 'header.php';
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-beta.1/js/select2.min.js"></script>
 
     <script>
-        function goBack() {
+       function goBack() {
             const urlParams = new URLSearchParams(window.location.search);
             const page = urlParams.get('page') || 1;
             const search = urlParams.get('search') || '';
-            window.location.href = 'hc_dash.php?page=' + page + '&search=' + encodeURIComponent(search);
+
+             window.location.href =
+            'hc_dash.php?page=' + page +
+            '&search=' + encodeURIComponent(search);
         }
 
         // Auto-ajustar altura de textareas
